@@ -20,6 +20,9 @@ import java.security.cert.CertificateFactory;
  *
  * @author tbc
  */
+// Cambios en el archivo ObtenerDatos.java
+
+
 public class ObtenerDatos {
 
     private static final byte[] dnie_v_1_0_Atr = {
