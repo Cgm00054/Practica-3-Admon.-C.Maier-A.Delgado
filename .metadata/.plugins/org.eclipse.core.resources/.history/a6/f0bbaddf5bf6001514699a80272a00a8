@@ -1,0 +1,52 @@
+package prueba;
+
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
+
+
+
+/**
+ *
+ * @author toni
+ */
+public class Main {
+	
+
+    /**
+     * @param args the command line arguments
+     */
+    public static void main(String[] args) throws Exception{
+        ByteArrayInputStream bais=null;
+       //read("cert.cer");
+       
+      // FileInputStream fis = new FileInputStream("cert.cer");
+      
+       
+      // byte value[] = new byte[fis.available()];
+       //  fis.read(value);
+       // bais = new ByteArrayInputStream(value);
+
+        //TODO: Obtener los datos del DNIe
+        String num="";
+        String nombre="";
+        String ap1="";
+        String ap2="";
+        ObtenerDatos od = new ObtenerDatos();
+        nombre=od.LeerNombre();
+       System.out.println("Nombre: "+nombre);
+       System.out.println("Apellido 1: "+ap1);
+       //TODO: Autenticarse en el servidor
+        
+    
+    }
+
+}
