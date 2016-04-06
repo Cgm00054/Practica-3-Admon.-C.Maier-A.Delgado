@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Rename resource &apos;acceso/WebContent/interfaz2.php&apos; to &apos;interfaz2.html&apos;" description="Rename resource &apos;interfaz2.php&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="WebContent/interfaz2.php" name="interfaz2.html" stamp="1459936300838" updateReferences="true"/>
+</session>
