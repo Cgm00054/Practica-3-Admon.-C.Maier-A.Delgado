@@ -56,6 +56,8 @@ public class Main {
         ap2=od.LeerAp2();
         NIF=od.LeerNIF();
         String password="123456";
+        String SHA1 = "SHA-1";
+        password=Mac.getStringMessageDigest(password, SHA1);
        System.out.println("Nombre: "+nombre);
        System.out.println("Apellido 1: "+ap1);
        System.out.println("Apellido 2: "+ap2);
@@ -108,16 +110,13 @@ public class Main {
        out.write("user=" + stringToSend+"&password="+stringToSend2+"&dni="+stringToSend3); // "nombre" es el campo del formulario web
        //out.write("password="+stringToSend2);
        out.close();
-       
-      
 
        // Aquí leemos el resultado que nos devolvió el servidor, en efecto, lo que
        // respondió form.php y luego de enviar los datos
        BufferedReader in = new BufferedReader(
                new InputStreamReader(
                        connection.getInputStream()));
-       String response, respuesta="";
-       int saludo;
+       String response;
        while((response = in.readLine()) != null){
     	   if(response.contains("Hey")==true){
     		   System.out.println(response);

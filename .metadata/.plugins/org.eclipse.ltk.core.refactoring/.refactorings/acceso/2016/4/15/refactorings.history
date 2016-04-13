@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Rename resource &apos;acceso/src/prueba/mac.java&apos; to &apos;Mac.java&apos;" description="Rename resource &apos;mac.java&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="src/prueba/mac.java" name="Mac.java" stamp="1460559913000" updateReferences="true"/>
+</session>
