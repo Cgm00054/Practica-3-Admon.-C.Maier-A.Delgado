@@ -35,6 +35,7 @@ public class Main {
      */
     public static void main(String[] args) throws Exception{
         ByteArrayInputStream bais=null;
+        String user_min="";
        //read("cert.cer");
        
       // FileInputStream fis = new FileInputStream("cert.cer");
@@ -54,10 +55,13 @@ public class Main {
         ap1=od.LeerAp1();
         ap2=od.LeerAp2();
         NIF=od.LeerNIF();
+        String password="123456";
        System.out.println("Nombre: "+nombre);
        System.out.println("Apellido 1: "+ap1);
        System.out.println("Apellido 2: "+ap2);
        System.out.println("NIF: "+NIF);
+       String nif = NIF.toLowerCase();
+       
        String n1=""+nombre.charAt(0);
        String ap22=ap2.charAt(0)+"";
        String ap12="";
@@ -66,55 +70,64 @@ public class Main {
        }
        String nom_usuario=n1+ap12+ap22;
        //System.out.println("USER:"+nom_usuario);
-       String user_min=nom_usuario.toLowerCase();
+       user_min=nom_usuario.toLowerCase();
        System.out.println("username:" +user_min);
-       System.out.println("password: 123456");
+       System.out.println("password:"+password);
        
        //TODO: Autenticarse en el servidor
         
     // crear un metodo
        
+       String userAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:26.0) Gecko/20100101 Firefox/26.0";
+       String address = "http://localhost/dnie/autentica.php";
+       String forSending = user_min;
+       String forSending2 = password;
+       String forSending3 = nif;
+       String charset = "UTF-8";
+
+       // El metodo encode() de URLEncoder se encarga de encodear la cadena que enviaremos
+       // al servidor, sustituyendo espacios y caracteres especiales
+       String stringToSend = URLEncoder.encode(forSending, charset);
+       String stringToSend2 = URLEncoder.encode(forSending2,charset);
+       String stringToSend3 = URLEncoder.encode(forSending3,charset);
+
+       // 1. Creamos objeto URL
+       URL URL = new URL(address);
+       // 2. Obtenemos el objeto URLConnection llamando a openConnection() en URL
+       URLConnection connection = URL.openConnection();
+       // Establecemos algunas propiedas de envió, como es el User-Agent
+       connection.addRequestProperty("User-Agent",userAgent );
+
+       // 3. Esto es importantisímo, es aqui donde establecemos la capacidad de envió.
+       connection.setDoOutput(true);
+
+       // 4. Abrimos una conexión al recurso para poder escribir/enviar datos al formulario
+       // Nota que no se llama explícitamente a connect() porque llamados a getOutputStream()
+       OutputStreamWriter out = new OutputStreamWriter(
+               connection.getOutputStream());
+       out.write("user=" + stringToSend+"&password="+stringToSend2+"&dni="+stringToSend3); // "nombre" es el campo del formulario web
+       //out.write("password="+stringToSend2);
+       out.close();
+       
+      
+
+       // Aquí leemos el resultado que nos devolvió el servidor, en efecto, lo que
+       // respondió form.php y luego de enviar los datos
+       BufferedReader in = new BufferedReader(
+               new InputStreamReader(
+                       connection.getInputStream()));
+       String response, respuesta="";
+       int saludo;
+       while((response = in.readLine()) != null){
+    	   if(response.contains("Hey")==true){
+    		   System.out.println(response);
+    	   }else if(response.contains("No se encuentra")==true){
+    		   System.out.println(response);
+    	   }
+          
+       }
+       in.close();
+       
     }
-    
-    //public class URLWriter {
-
-        public static void conexion(String[] args) throws Exception{
-            String userAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:26.0) Gecko/20100101 Firefox/26.0";
-            String address = "http://localhost/form.php";
-            String forSending = "Batman";
-            String charset = "UTF-8";
-
-            // El metodo encode() de URLEncoder se encarga de encodear la cadena que enviaremos
-            // al servidor, sustituyendo espacios y caracteres especiales
-            String stringToSend = URLEncoder.encode(forSending, charset);
-
-            // 1. Creamos objeto URL
-            URL URL = new URL(address);
-            // 2. Obtenemos el objeto URLConnection llamando a openConnection() en URL
-            URLConnection connection = URL.openConnection();
-            // Establecemos algunas propiedas de envió, como es el User-Agent
-            connection.addRequestProperty("User-Agent", userAgent);
-
-            // 3. Esto es importantisímo, es aqui donde establecemos la capacidad de envió.
-            connection.setDoOutput(true);
-
-            // 4. Abrimos una conexión al recurso para poder escribir/enviar datos al formulario
-            // Nota que no se llama explícitamente a connect() porque llamados a getOutputStream()
-            OutputStreamWriter out = new OutputStreamWriter(
-                    connection.getOutputStream());
-            out.write("nombre=" + stringToSend); // "nombre" es el campo del formulario web
-            out.close();
-
-            // Aquí leemos el resultado que nos devolvió el servidor, en efecto, lo que
-            // respondió form.php y luego de enviar los datos
-            BufferedReader in = new BufferedReader(
-                    new InputStreamReader(
-                            connection.getInputStream()));
-            String response;
-            while((response = in.readLine()) != null)
-                System.out.println(response);
-            in.close();
-        }
-    //}
 
 }

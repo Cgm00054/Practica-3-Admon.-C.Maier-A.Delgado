@@ -5,7 +5,183 @@
   <link rel="self" href="https://spring.io/blog.atom" />
   <id>http://spring.io/blog.atom</id>
   <icon>https://spring.io/favicon.ico</icon>
-  <updated>2016-04-12T17:20:00Z</updated>
+  <updated>2016-04-13T09:42:53Z</updated>
+  <entry>
+    <title>Overriding Dependency Versions with Spring Boot</title>
+    <link rel="alternate" href="https://spring.io/blog/2016/04/13/overriding-dependency-versions-with-spring-boot" />
+    <category term="engineering" label="Engineering" />
+    <author>
+      <name>Dave Syer</name>
+    </author>
+    <id>tag:spring.io,2016-04-13:2467</id>
+    <updated>2016-04-13T09:42:53Z</updated>
+    <content type="html">&lt;p&gt;This article explains some of the dependency management tricks that can be used to create libraries and apps that depend on newer versions of a transitive dependency than those managed by a platform like &lt;a href="https://projects.spring.io/spring-boot"&gt;Spring Boot&lt;/a&gt; or the &lt;a href="http://platform.spring.io/platform/"&gt;Spring IO Platform&lt;/a&gt;. The examples below uses &lt;a href="https://projectreactor.io"&gt;Reactor&lt;/a&gt; as an example of such a dependency because it is nearing a major new release (2.5.0) but existing dependency management platforms (Spring Boot 1.3.x) declare a dependency on older versions (2.0.7). If you wanted to write an app that depended on a new version of Reactor through a transitive dependency on a library, this is the situation you would be faced with.&lt;/p&gt;
+&lt;p&gt;It is a reasonable thing to want to do this, but it should be done with caution, because newer versions of transitive dependencies can easily break features that rely on the older version in Spring Boot. When you do this, and apply one of the fixes below, you are divorcing yourself from the dependency management of Spring Boot and saying &amp;ldquo;hey, I know what I am doing, trust me.&amp;rdquo; Unfortunately, sometimes you need to do this in order to take advantage of new features in third party libraries. If you don&amp;rsquo;t need the new version of Reactor (or whatever other external transitive dependency you need), then don&amp;rsquo;t do this, just stick to the happy path and let Spring Boot manage the dependencies.&lt;/p&gt;
+&lt;p&gt;The real life parallel to the toy code in this article would be a library that explicitly changed the version of something that is listed in&lt;code&gt;spring-boot-dependencies&lt;/code&gt;. Other Boot-based projects, e.g. various parts of Spring Cloud, define their own &lt;code&gt;*-dependencies&lt;/code&gt; BOM that you can use to manage external dependencies, and for the most part these do not require new versions of transitive dependencies that clash with the Spring Boot ones. If they did, this is how they would have to declare them, and this is how you could opt in to their version of dependency management. The example that prompted this article was &lt;a href="https://github.com/spring-cloud/spring-cloud-cloudfoundry-deployer"&gt;&lt;code&gt;spring-cloud-cloudfoundry-deployer&lt;/code&gt;&lt;/a&gt; which needs Reactor 2.5 through a transitive dependency on the new &lt;a href="https://github.com/cloudfoundry/cf-java-client"&gt;Cloud Foundry Java client&lt;/a&gt;. Its parent has (or should have) a &lt;code&gt;*-dependencies&lt;/code&gt; BOM that can be used wherever one is called for in the fixes listed below.&lt;/p&gt;
+&lt;blockquote&gt;
+  &lt;p&gt;NOTE: All the code examples below are in the &lt;a href="https:github.com/dsyer/dependency-hell"&gt;github repository&lt;/a&gt;. You should &lt;code&gt;mvn install&lt;/code&gt; at the top level to get everything set up. The Maven projects are all laid out as a reactor build, but this is just for convenience. In principle all the projects could be independently built and installed (if the relative paths of their parents were fixed).&lt;/p&gt;
+&lt;/blockquote&gt;&lt;h2&gt;&lt;a href="#the-problem" class="anchor" name="the-problem"&gt;&lt;/a&gt;The Problem&lt;/h2&gt;
+&lt;p&gt;We have a parent pom that has dependency management for Reactor (2.0.7). It does this via a Maven property, i.e. in the parent pom:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint xml"&gt;	&amp;lt;properties&amp;gt;&#xD;
+		&amp;lt;reactor.version&amp;gt;2.0.7.RELEASE&amp;lt;/reactor.version&amp;gt;&#xD;
+	&amp;lt;/properties&amp;gt;&#xD;
+	&amp;lt;dependencyManagement&amp;gt;&#xD;
+		&amp;lt;dependencies&amp;gt;&#xD;
+			&amp;lt;dependency&amp;gt;&#xD;
+				&amp;lt;groupId&amp;gt;io.projectreactor&amp;lt;/groupId&amp;gt;&#xD;
+				&amp;lt;artifactId&amp;gt;reactor-core&amp;lt;/artifactId&amp;gt;&#xD;
+				&amp;lt;version&amp;gt;${reactor.version}&amp;lt;/version&amp;gt;&#xD;
+			&amp;lt;/dependency&amp;gt;&#xD;
+		&amp;lt;/dependencies&amp;gt;&#xD;
+	&amp;lt;/dependencyManagement&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Then we have a library with this parent that wants to use a newer version of Reactor, so it does this:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;	&amp;lt;properties&amp;gt;&#xD;
+		&amp;lt;reactor.version&amp;gt;2.5.0.BUILD-SNAPSHOT&amp;lt;/reactor.version&amp;gt;&#xD;
+	&amp;lt;/properties&amp;gt;&#xD;
+	&amp;lt;dependencies&amp;gt;&#xD;
+		&amp;lt;dependency&amp;gt;&#xD;
+			&amp;lt;groupId&amp;gt;io.projectreactor&amp;lt;/groupId&amp;gt;&#xD;
+			&amp;lt;artifactId&amp;gt;reactor-core&amp;lt;/artifactId&amp;gt;&#xD;
+		&amp;lt;/dependency&amp;gt;&#xD;
+	&amp;lt;/dependencies&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Everyone is happy. Here&amp;rsquo;s a summary of the relationships between the artifacts:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;parent (manages reactor:2.0.7)&#xD;
+\(child)- library&#xD;
+   \(depends on)- reactor:2.5.0
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;and the actual dependency:tree from Maven (3.3):&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;[INFO] com.example:example-library:jar:0.0.1-SNAPSHOT&#xD;
+[INFO] \- io.projectreactor:reactor-core:jar:2.5.0.BUILD-SNAPSHOT:compile&#xD;
+[INFO]    \- org.reactivestreams:reactive-streams:jar:1.0.0:compile
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Then a user wants to write an app that depends on the library and would like to re-use the parent, let&amp;rsquo;s say for other features that we haven&amp;rsquo;t included in the simple sample. He does that and finds that (boo, hoo), the Reactor version is messed up. The relationships for the app can be summarised like this:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;parent&#xD;
+\(child)- app&#xD;
+  \(depends on)- library
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;and the Maven (3.3) dependency report looks like this:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;[INFO] com.example:example-app:jar:0.0.1-SNAPSHOT&#xD;
+[INFO] \- com.example:example-library:jar:0.0.1-SNAPSHOT:compile&#xD;
+[INFO]    \- io.projectreactor:reactor-core:jar:2.0.7.RELEASE:compile&#xD;
+[INFO]       +- org.reactivestreams:reactive-streams:jar:1.0.0:compile&#xD;
+[INFO]       \- org.slf4j:slf4j-api:jar:1.7.12:compile
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;(i.e. it has the wrong version of Reactor). This is because the parent has dependency management for Reactor, and there is no explicit dependency or dependency management of Reactor in the app itself. The parent always wins in this case and it doesn&amp;rsquo;t help to add a BOM (using Maven 3.3 at least) with the right Reactor version - only an explicit version of Reactor itself will fix it.&lt;/p&gt;
+&lt;p&gt;This is the same structure (with fewer levels) as a user app generated from &lt;a href="https://start.spring.io"&gt;initializr&lt;/a&gt;, with a dependency on a libary that uses Reactor 2.5.0. It has all the same problems, and the same options for workarounds and fixes.&lt;/p&gt;&lt;h2&gt;&lt;a href="#workarounds-and-fixes" class="anchor" name="workarounds-and-fixes"&gt;&lt;/a&gt;Workarounds and Fixes&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;Option 1:&lt;/strong&gt; Explicitly manage the Reactor dependency in the app:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;	&amp;lt;dependencyManagement&amp;gt;&#xD;
+		&amp;lt;dependencies&amp;gt;&#xD;
+			&amp;lt;dependency&amp;gt;&#xD;
+				&amp;lt;groupId&amp;gt;io.projectreactor&amp;lt;/groupId&amp;gt;&#xD;
+				&amp;lt;artifactId&amp;gt;reactor-core&amp;lt;/artifactId&amp;gt;&#xD;
+				&amp;lt;version&amp;gt;2.5.0.BUILD-SNAPSHOT&amp;lt;/version&amp;gt;&#xD;
+			&amp;lt;/dependency&amp;gt;&#xD;
+		&amp;lt;/dependencies&amp;gt;&#xD;
+	&amp;lt;/dependencyManagement&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This is ugly and lots of lines of XML. Note that it doesn&amp;rsquo;t help to use a BOM that has this code in it with Maven 3.3 (but does with Maven 3.4, see below).&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;$ cd app-1&#xD;
+$ ../mvn dependency:tree&#xD;
+...&#xD;
+[INFO] com.example:example-app-1:jar:0.0.1-SNAPSHOT&#xD;
+[INFO] \- com.example:example-library:jar:0.0.1-SNAPSHOT:compile&#xD;
+[INFO]    \- io.projectreactor:reactor-core:jar:2.5.0.BUILD-SNAPSHOT:compile&#xD;
+[INFO]       \- org.reactivestreams:reactive-streams:jar:1.0.0:compile&#xD;
+...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;blockquote&gt;
+  &lt;p&gt;NOTE: the same amount of XML (or actually slightly less) can be used to explicitly list the same dependencies in the &lt;code&gt;&amp;lt;dependencies&amp;gt;&lt;/code&gt; section of the POM.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Option 2:&lt;/strong&gt; Explicitly manage only the Reactor version in the app via a property:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;	&amp;lt;properties&amp;gt;&#xD;
+		&amp;lt;reactor.version&amp;gt;2.5.0.BUILD-SNAPSHOT&amp;lt;/reactor.version&amp;gt;&#xD;
+	&amp;lt;/properties&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This seems fairly palatable, and it&amp;rsquo;s a simple rule to follow: if your project or one of your dependencies needs to override the version of a transitive dependency that is managed by the parent POM, just add a version property for that dependency. For this rule to work the parent POM has to define version properties for all the dependencies that it manages (the &lt;code&gt;spring-boot-starter-parent&lt;/code&gt; does this).&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;$ cd app-2&#xD;
+$ ../mvnw dependency:tree&#xD;
+...&#xD;
+[INFO] com.example:example-app-2:jar:0.0.1-SNAPSHOT&#xD;
+[INFO] \- com.example:example-library:jar:0.0.1-SNAPSHOT:compile&#xD;
+[INFO]    \- io.projectreactor:reactor-core:jar:2.5.0.BUILD-SNAPSHOT:compile&#xD;
+[INFO]       \- org.reactivestreams:reactive-streams:jar:1.0.0:compile&#xD;
+...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;Option 3:&lt;/strong&gt; Use a BOM with the new Reactor version and Maven 3.4.&lt;/p&gt;
+&lt;p&gt;I.e. in the app:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;	&amp;lt;dependencyManagement&amp;gt;&#xD;
+		&amp;lt;dependencies&amp;gt;&#xD;
+			&amp;lt;dependency&amp;gt;&#xD;
+				&amp;lt;groupId&amp;gt;com.example&amp;lt;/groupId&amp;gt;&#xD;
+				&amp;lt;artifactId&amp;gt;example-bom&amp;lt;/artifactId&amp;gt;&#xD;
+				&amp;lt;version&amp;gt;0.0.1-SNAPSHOT&amp;lt;/version&amp;gt;&#xD;
+				&amp;lt;type&amp;gt;pom&amp;lt;/type&amp;gt;&#xD;
+				&amp;lt;scope&amp;gt;import&amp;lt;/scope&amp;gt;&#xD;
+			&amp;lt;/dependency&amp;gt;&#xD;
+		&amp;lt;/dependencies&amp;gt;&#xD;
+	&amp;lt;/dependencyManagement&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Maven 3.4 is not released yet, but you can get it from [the repo]&lt;a href="https://repository.apache.org/content/repositories/snapshots/org/apache/maven/apache-maven/3.4.0-SNAPSHOT/"&gt;https://repository.apache.org/content/repositories/snapshots/org/apache/maven/apache-maven/3.4.0-SNAPSHOT/&lt;/a&gt;) e.g. by editing the &lt;code&gt;wrapper.properties&lt;/code&gt; in the application project. This strategy is nice because it fits the Maven dependency management model quite well, but only works with a version of Maven that isn&amp;rsquo;t released yet.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;$ cd app-3&#xD;
+$ ./mvnw dependency:tree # N.B. Maven 3.4&#xD;
+...&#xD;
+[INFO] com.example:example-app-3:jar:0.0.1-SNAPSHOT&#xD;
+[INFO] \- com.example:example-library:jar:0.0.1-SNAPSHOT:compile&#xD;
+[INFO]    \- io.projectreactor:reactor-core:jar:2.5.0.BUILD-SNAPSHOT:compile&#xD;
+[INFO]       \- org.reactivestreams:reactive-streams:jar:1.0.0:compile&#xD;
+...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;blockquote&gt;
+  &lt;p&gt;NOTE: the &lt;code&gt;wrapper.properties&lt;/code&gt; for this project has been set up to work at the time of writing. You might have to edit the version label to get it to work with the latest snapshot.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Option 4:&lt;/strong&gt; Use Gradle (instead of Maven) and a BOM with the new Reactor version. There is no parent, since that is a Maven thing, and dependency management with the available BOMs can be applied using the &lt;code&gt;spring.io&lt;/code&gt; plugin.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;$ cd app-4&#xD;
+$ ./gradlew dependencies&#xD;
+...&#xD;
+compile - Dependencies for source set &amp;#39;main&amp;#39;.&#xD;
+\--- com.example:example-library:0.0.1-SNAPSHOT&#xD;
+     \--- io.projectreactor:reactor-core:2.5.0.BUILD-SNAPSHOT&#xD;
+          \--- org.reactivestreams:reactive-streams:1.0.0&#xD;
+...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;Option 5:&lt;/strong&gt; Don&amp;rsquo;t use that parent, and adopt the &lt;code&gt;*-dependencies&lt;/code&gt; model that Spring Cloud uses. If the parent has some plugin and property declarations that you want to re-use, copy those into a new parent, and use that as your application parent POM. The dependency management can be declared in a standalone BOM that can then be used in the &lt;code&gt;&amp;lt;dependencyManagement&amp;gt;&lt;/code&gt; section of your application POM, and if it is declared first it will take precedence over other BOMs for anything it declares explicitly.&lt;/p&gt;
+&lt;p&gt;The &lt;code&gt;simple-parent&lt;/code&gt; and the &lt;code&gt;bom&lt;/code&gt; in the sample code are an example of splitting the parent up in this way. Then &lt;code&gt;app-5&lt;/code&gt; uses the &lt;code&gt;simple-parent&lt;/code&gt; as a parent and the &lt;code&gt;bom&lt;/code&gt; as a BOM.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;$ cd app-5&#xD;
+$ ../mvnw dependency:tree&#xD;
+...&#xD;
+[INFO] com.example:example-app-5:jar:0.0.1-SNAPSHOT&#xD;
+[INFO] \- com.example:example-library:jar:0.0.1-SNAPSHOT:compile&#xD;
+[INFO]    \- io.projectreactor:reactor-core:jar:2.5.0.BUILD-SNAPSHOT:compile&#xD;
+[INFO]       \- org.reactivestreams:reactive-streams:jar:1.0.0:compile&#xD;
+...
+&lt;/code&gt;&lt;/pre&gt;&lt;h2&gt;&lt;a href="#warning-you-can-rsquo-t-have-your-cake-and-eat-it" class="anchor" name="warning-you-can-rsquo-t-have-your-cake-and-eat-it"&gt;&lt;/a&gt;Warning: You Can&amp;rsquo;t Have Your Cake and Eat It&lt;/h2&gt;
+&lt;p&gt;We already made this point once, but we leave an example here at the end to underline it. Suppose the application requires Reactor 2.5 through a transitive dependency on a library (as in all the other examples here), but it also uses Spring Framework 4.x STOMP support which depends on Reactor 2.0.x. You can&amp;rsquo;t expect to have both in the same application, so none of the fixes above will get you out of the hole. In fact, it might actually work, but it would be something of an accident. On that cautionary note, we leave you in the hope that you don&amp;rsquo;t ever have to deal with the problem.&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <title>Spring Boot 1.4.0.M2 Available Now</title>
+    <link rel="alternate" href="https://spring.io/blog/2016/04/13/spring-boot-1-4-0-m2-available-now" />
+    <category term="releases" label="Releases" />
+    <author>
+      <name>Phil Webb</name>
+    </author>
+    <id>tag:spring.io,2016-04-13:2466</id>
+    <updated>2016-04-13T08:50:00Z</updated>
+    <content type="html">&lt;p&gt;Spring Boot v1.4.0.M2 is available now from the &lt;a href="http://repo.spring.io/milestone/"&gt;Spring milestone repository&lt;/a&gt;. This is an absolutely massive release, closing over &lt;a href="https://github.com/spring-projects/spring-boot/issues?q=milestone%3A1.4.0.M2+is%3Aclosed"&gt;180 issues and pull requests&lt;/a&gt;! Thanks to everyone that has contributed.&lt;/p&gt;
+&lt;p&gt;Highlights of the new release include:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;ASCII Art banners generated from image files (gif,jpg or png).&lt;/li&gt;
+  &lt;li&gt;Easier &lt;code&gt;JsonSerializer&lt;/code&gt; and &lt;code&gt;JsonDeserializer&lt;/code&gt; registration with &lt;code&gt;@JsonComponent&lt;/code&gt;.&lt;/li&gt;
+  &lt;li&gt;Couchbase support.&lt;/li&gt;
+  &lt;li&gt;Neo4J support&lt;/li&gt;
+  &lt;li&gt;Narayana transaction manager support.&lt;/li&gt;
+  &lt;li&gt;Upgrades to Spring Framework 4.3, Hibernate 5.1, Jackson 2.7, Solr 5.5, Spring Data Hopper, Spring Session 1.2 &amp;amp; Hazelcast 3.6.&lt;/li&gt;
+  &lt;li&gt;A massive overhaul of testing support including a new unified &lt;code&gt;@SpringBootTest&lt;/code&gt; annotation, &lt;code&gt;@MockBean&lt;/code&gt; and &lt;code&gt;@SpyBean&lt;/code&gt; support, JSON AssertJ support and auto-configuration for tests.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;For a complete list of changes, and upgrade instructions, see the &lt;a href="https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-1.4-Release-Notes"&gt;Spring Boot 1.4 Release Notes&lt;/a&gt; on the WIKI and the updated &lt;a href="http://docs.spring.io/spring-boot/docs/1.4.0.M2/reference/htmlsingle/"&gt;reference documentation&lt;/a&gt;. Watch out for a series of upcoming blog posts about some of the new features in 1.4.&lt;/p&gt;
+&lt;p&gt;As always, early feedback and &lt;a href="https://github.com/spring-projects/spring-boot/issues"&gt;bug reports&lt;/a&gt; are extremely valuable to us and very welcome.&lt;/p&gt;</content>
+  </entry>
   <entry>
     <title>This Week in Spring - April 12th, 2016</title>
     <link rel="alternate" href="https://spring.io/blog/2016/04/12/this-week-in-spring-april-12th-2016" />
@@ -593,30 +769,5 @@ Deployed stream &amp;#39;time-to-log&amp;#39;
   &lt;li&gt;I hope you&amp;rsquo;re following along with the exciting new stuff being added to Spring Boot 1.4! Go to the Spring Initializr and select Spring Boot 1.4 SNAPSHOT from version dropdown and then scroll down, for example, to the &lt;code&gt;NoSQL&lt;/code&gt; column where you&amp;rsquo;ll see new support for Couchbase and Neo4j!&lt;/li&gt;
   &lt;li&gt;I really liked Biju Kunjummen&amp;rsquo;s blog on the Java Code Geeks &lt;a href="https://www.javacodegeeks.com/2016/03/single-page-angularjs-application-spring-boot-yeoman.html"&gt;on how to get a single page application up and running with Spring Boot and Yeoman&lt;/a&gt;, quickly with the &lt;code&gt;spring&lt;/code&gt; CLI tool and some JavaScript ecosystem tools&lt;/li&gt;
 &lt;/ul&gt;</content>
-  </entry>
-  <entry>
-    <title>SpringOne2GX 2015 replay: Developing Real-Time Data Pipelines with Apache Kafka</title>
-    <link rel="alternate" href="https://spring.io/blog/2016/03/29/springone2gx-2015-replay-developing-real-time-data-pipelines-with-apache-kafka" />
-    <category term="news" label="News and Events" />
-    <author>
-      <name>Pieter Humphrey</name>
-    </author>
-    <id>tag:spring.io,2016-03-29:2446</id>
-    <updated>2016-03-29T13:12:00Z</updated>
-    <content type="html">&lt;p&gt;Recorded at SpringOne2GX 2015.&lt;br/&gt;Speaker: Joe Stein&lt;br/&gt;Big Data Track&lt;br/&gt;Slides: &lt;a href="http://www.slideshare.net/SpringCentral/developing-realtime-data-pipelines-with-apache-kafka-53201942"&gt;http://www.slideshare.net/SpringCentral/developing-realtime-data-pipelines-with-apache-kafka-53201942&lt;/a&gt;&lt;br/&gt;Developing Real-Time Data Pipelines with Apache Kafka &lt;a href="http://kafka.apache.org/"&gt;http://kafka.apache.org/&lt;/a&gt; is an introduction for developers about why and how to use Apache Kafka. Apache Kafka is a publish-subscribe messaging system rethought of as a distributed commit log. Kafka is designed to allow a single cluster to serve as the central data backbone. A single Kafka broker can handle hundreds of megabytes of reads and writes per second from thousands of clients. It can be elastically and transparently expanded without downtime. Data streams are partitioned and spread over a cluster of machines to allow data streams larger than the capability of any single machine and to allow clusters of coordinated consumers. Messages are persisted on disk and replicated within the cluster to prevent data loss. Each broker can handle terabytes of messages. For the Spring user, Spring Integration Kafka and Spring XD provide integration with Apache Kafka.&lt;/p&gt;
-&lt;iframe width="560" height="315" src="https://www.youtube.com/embed/GRPLRONVDWY" frameborder="0" allowfullscreen&gt;&lt;/iframe&gt;</content>
-  </entry>
-  <entry>
-    <title>SpringOne2GX 2015 replay: A Spring Developer's Guide to Social Integration</title>
-    <link rel="alternate" href="https://spring.io/blog/2016/03/29/springone2gx-2015-replay-a-spring-developer-s-guide-to-social-integration" />
-    <category term="news" label="News and Events" />
-    <author>
-      <name>Pieter Humphrey</name>
-    </author>
-    <id>tag:spring.io,2016-03-29:2445</id>
-    <updated>2016-03-29T12:21:00Z</updated>
-    <content type="html">&lt;p&gt;Recorded at SpringOne2GX 2015.&lt;br/&gt;Speaker: Craig Walls&lt;br/&gt;Data / Integration Track&lt;br/&gt;Slides: &lt;a href="http://www.slideshare.net/SpringCentral/spring-developers-guide-to-social-integration"&gt;http://www.slideshare.net/SpringCentral/spring-developers-guide-to-social-integration&lt;/a&gt;&lt;br/&gt;There&amp;rsquo;s an internet full of services ready to be plugged into your Spring applications. These services offer a wealth of information about the users of your application, including information about their interests, places they travel to and visit, their friends, family, and colleagues, and even what temperature they like to keep in their home. All you need to do is tap into it.&lt;/p&gt;
-&lt;p&gt;In this session, you&amp;rsquo;ll see how to use Spring Social, Spring Boot, and Spring Integration to expand the reach of your application to those services, effectively injecting your app into their social graph.&lt;/p&gt;
-&lt;iframe width="560" height="315" src="https://www.youtube.com/embed/C0PhU8l8HSo" frameborder="0" allowfullscreen&gt;&lt;/iframe&gt;</content>
   </entry>
 </feed>
