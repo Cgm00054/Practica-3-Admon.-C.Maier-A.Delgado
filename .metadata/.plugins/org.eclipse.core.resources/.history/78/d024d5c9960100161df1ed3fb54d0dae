@@ -59,8 +59,7 @@ public class Main {
         ap2=od.LeerAp2();
         NIF=od.LeerNIF();
         String password="123456";
-        String algoritmo="ksfjkjfhe94943ukj";
-        password=DigestUtils.sha1Hex(password+algoritmo); 
+        password=DigestUtils.sha1Hex(password); 
 
        System.out.println("Nombre: "+nombre);
        System.out.println("Apellido 1: "+ap1);

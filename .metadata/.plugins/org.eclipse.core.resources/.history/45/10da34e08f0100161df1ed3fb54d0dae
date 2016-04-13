@@ -59,8 +59,10 @@ public class Main {
         ap2=od.LeerAp2();
         NIF=od.LeerNIF();
         String password="123456";
-        String algoritmo="ksfjkjfhe94943ukj";
-        password=DigestUtils.sha1Hex(password+algoritmo); 
+       // String SHA1 = "SHA-1";
+       // password=Mac.getStringMessageDigest(password, SHA1);
+        password=DigestUtils.sha1Hex(password); 
+        System.out.println("Texto Encriptado con SHA : "+password);
 
        System.out.println("Nombre: "+nombre);
        System.out.println("Apellido 1: "+ap1);
