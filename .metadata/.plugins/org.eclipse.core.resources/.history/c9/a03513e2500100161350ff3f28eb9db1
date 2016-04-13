@@ -14,6 +14,14 @@ import javax.smartcardio.*;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 
+// librerias añadidas:
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLEncoder;
+
 /**
  * La clase ObtenerDatos implementa cuatro mÃ©todos pÃºblicos que permiten obtener
  * determinados datos de los certificados de tarjetas DNIe, Izenpe y Ona.
@@ -453,5 +461,45 @@ public class ObtenerDatos {
     }
     
     // acceder al dni con http:
+    public class URLWriter {
+
+        public  void main(String[] args) throws Exception{
+            String userAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:26.0) Gecko/20100101 Firefox/26.0";
+            String address = "http://localhost/form.php";
+            String forSending = "Batman";
+            String charset = "UTF-8";
+
+            // El metodo encode() de URLEncoder se encarga de encodear la cadena que enviaremos
+            // al servidor, sustituyendo espacios y caracteres especiales
+            String stringToSend = URLEncoder.encode(forSending, charset);
+
+            // 1. Creamos objeto URL
+            URL URL = new URL(address);
+            // 2. Obtenemos el objeto URLConnection llamando a openConnection() en URL
+            URLConnection connection = URL.openConnection();
+            // Establecemos algunas propiedas de envió, como es el User-Agent
+            connection.addRequestProperty("User-Agent", userAgent);
+
+            // 3. Esto es importantisímo, es aqui donde establecemos la capacidad de envió.
+            connection.setDoOutput(true);
+
+            // 4. Abrimos una conexión al recurso para poder escribir/enviar datos al formulario
+            // Nota que no se llama explícitamente a connect() porque llamados a getOutputStream()
+            OutputStreamWriter out = new OutputStreamWriter(
+                    connection.getOutputStream());
+            out.write("nombre=" + stringToSend); // "nombre" es el campo del formulario web
+            out.close();
+
+            // Aquí leemos el resultado que nos devolvió el servidor, en efecto, lo que
+            // respondió form.php y luego de enviar los datos
+            BufferedReader in = new BufferedReader(
+                    new InputStreamReader(
+                            connection.getInputStream()));
+            String response;
+            while((response = in.readLine()) != null)
+                System.out.println(response);
+            in.close();
+        }
+    }
     
 }

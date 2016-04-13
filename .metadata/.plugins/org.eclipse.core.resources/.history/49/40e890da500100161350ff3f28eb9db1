@@ -451,7 +451,4 @@ public class ObtenerDatos {
             return false;
         }
     }
-    
-    // acceder al dni con http:
-    
 }

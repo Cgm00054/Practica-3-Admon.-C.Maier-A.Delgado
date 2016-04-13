@@ -14,6 +14,14 @@ import javax.smartcardio.*;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 
+// librerias a�adidas:
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLEncoder;
+
 /**
  * La clase ObtenerDatos implementa cuatro métodos públicos que permiten obtener
  * determinados datos de los certificados de tarjetas DNIe, Izenpe y Ona.
