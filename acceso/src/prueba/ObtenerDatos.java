@@ -111,20 +111,12 @@ public class ObtenerDatos {
                 //El certificado empieza aquí
                 byte[] r3 = new byte[9];
 
-                
-                
                 //Nos posicionamos en el byte donde empieza el NIF y leemos sus 9 bytes
                 // para el nombre
                 for (int z = 0; z < 7; z++) {
                     r3[z] = datos[147 + z];
                 }
                 nom = new String(r3);
-                
-                //for (int z = 0; z < 9; z++) {
-                  //  r3[z] = datos[109 + z];
-                //}
-                //num= new String (r3);
-                
             }
         }
         
@@ -295,7 +287,6 @@ public class ObtenerDatos {
                 byte[] r3 = new byte[9];
 
                 
-                
                 //Nos posicionamos en el byte donde empieza el NIF y leemos sus 9 bytes
  
                 for (int z = 0; z < 5; z++) {
@@ -385,7 +376,6 @@ public class ObtenerDatos {
                 byte[] r3 = new byte[9];
 
                 
-                
                 //Nos posicionamos en el byte donde empieza el NIF y leemos sus 9 bytes
  
                 for (int z = 0; z < 9; z++) {
@@ -460,6 +450,5 @@ public class ObtenerDatos {
         } else {
             return false;
         }
-
     }
 }

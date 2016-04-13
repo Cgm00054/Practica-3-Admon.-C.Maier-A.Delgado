@@ -60,6 +60,7 @@ public class Main {
        //System.out.println("USER:"+nom_usuario);
        String user_min=nom_usuario.toLowerCase();
        System.out.println("username:" +user_min);
+       System.out.println("password: 123456");
        
        //TODO: Autenticarse en el servidor
         
