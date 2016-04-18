@@ -1,0 +1,69 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/* 
+    Created on : 05-mar-2014, 19:33:29
+    Author     : Juan Carlos
+*/
+body {
+    font-family: sans-serif;
+    
+
+
+}
+.h1{text-align: center;
+    font-size:14px;}
+.h2{text-align: center;
+    font-size:12px}
+.h3{font-size:12px;}
+
+#banner{
+    color:#03F;
+    padding:10px;
+    width: auto;
+    height: auto;
+    margin-bottom: 10px;
+    text-align:center;
+}
+
+#main{
+    padding:10px;
+    color:white;
+    background-repeat: no-repeat;
+    width: auto;
+    height: 50%;
+    overflow: auto;
+    background-color: #0000ff;
+}
+
+
+#foot{
+    padding:10px;
+
+    color:white;
+    width: auto;
+    height: auto;
+	   text-align:center;
+    background-color: #3366ff;
+}
+
+#formleft{
+    padding: 10px;
+   float:left;
+    left: 10px;
+    width: auto;
+    background-color: #3366ff;
+}
+#formright{
+padding: 10px;
+    float:right;
+    width: auto;
+   background-color: #3366ff;
+}
+.td{
+    alignment-adjust: middle;
+    color: white;
+
+}
