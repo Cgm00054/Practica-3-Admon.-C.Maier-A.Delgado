@@ -1,6 +1,0 @@
-INDEX VERSION 1.3+D:\Cristian\Escritorio\Practica-3-Admon.-C.Maier-A.Delgado\PRACTICA 3 DSD PC MAIER\.metadata\.plugins\org.eclipse.wst.jsdt.core\indexes
-2065793483.index
-981115896.index
-327992126.index
-2651759584.index
-4007358813.index

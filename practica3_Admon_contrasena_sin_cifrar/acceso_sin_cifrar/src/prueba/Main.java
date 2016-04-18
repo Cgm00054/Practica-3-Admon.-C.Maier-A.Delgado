@@ -14,6 +14,7 @@ import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
+import java.util.Scanner;
 
 /*
  * To change this template, choose Tools | Templates
@@ -55,7 +56,6 @@ public class Main {
         ap1=od.LeerAp1();
         ap2=od.LeerAp2();
         NIF=od.LeerNIF();
-        String password="123456";
        System.out.println("Nombre: "+nombre);
        System.out.println("Apellido 1: "+ap1);
        System.out.println("Apellido 2: "+ap2);
@@ -72,6 +72,9 @@ public class Main {
        //System.out.println("USER:"+nom_usuario);
        user_min=nom_usuario.toLowerCase();
        System.out.println("username:" +user_min);
+       Scanner teclado= new Scanner(System.in);
+       System.out.print("Introduzca su password, "+user_min+" :");
+       String password=teclado.next();
        System.out.println("password:"+password);
        
        //TODO: Autenticarse en el servidor
