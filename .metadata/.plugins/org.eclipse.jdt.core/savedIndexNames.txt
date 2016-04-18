@@ -1,1 +1,0 @@
-INDEX VERSION 1.127+D:\Cristian\Escritorio\Practica-3-Admon.-C.Maier-A.Delgado\.metadata\.plugins\org.eclipse.jdt.core
