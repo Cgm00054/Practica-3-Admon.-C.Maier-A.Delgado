@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<session version="1.0">
-<refactoring comment="Rename resource &apos;acceso&apos; to &apos;acceso_cifrado_en_servidor&apos;" description="Rename resource &apos;acceso&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="/acceso" name="acceso_cifrado_en_servidor" stamp="1460979999090" updateReferences="true"/>
-</session>
