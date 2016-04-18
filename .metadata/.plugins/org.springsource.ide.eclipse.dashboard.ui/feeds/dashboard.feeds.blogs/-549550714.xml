@@ -5,7 +5,447 @@
   <link rel="self" href="https://spring.io/blog.atom" />
   <id>http://spring.io/blog.atom</id>
   <icon>https://spring.io/favicon.ico</icon>
-  <updated>2016-04-13T09:42:00Z</updated>
+  <updated>2016-04-15T18:37:28Z</updated>
+  <entry>
+    <title>Testing improvements in Spring Boot 1.4</title>
+    <link rel="alternate" href="https://spring.io/blog/2016/04/15/testing-improvements-in-spring-boot-1-4" />
+    <category term="engineering" label="Engineering" />
+    <author>
+      <name>Phil Webb</name>
+    </author>
+    <id>tag:spring.io,2016-04-15:2471</id>
+    <updated>2016-04-15T18:37:28Z</updated>
+    <content type="html">&lt;p&gt;One of the nice things about working for Pivotal is that they have a great agile development division called Pivotal Labs. The teams within Labs are big proponents of Lean and XP software methodologies such as pair programming and test-driven development. Their love of testing has had a particular impact on Spring Boot 1.4 as we&amp;rsquo;ve started to get great feedback on things that could be improved. This blog post highlights some of the new testing features that have just landed in the latest M2 release.&lt;/p&gt;&lt;h2&gt;&lt;a href="#testing-without-spring" class="anchor" name="testing-without-spring"&gt;&lt;/a&gt;Testing without Spring&lt;/h2&gt;
+&lt;p&gt;The easiest way to unit test any Spring &lt;code&gt;@Component&lt;/code&gt; is to not involve Spring at all! It&amp;rsquo;s always best to try and structure your code so that classes can be instantiated and tested directly. Usually that boils down to a few things:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;Structure your code with clean separation of concerns so that individual parts can be unit tested. TDD is a good way to achieve this.&lt;/li&gt;
+  &lt;li&gt;Use constructor injection to ensure that objects can be instantiated directly. Don&amp;rsquo;t use field injection as it just makes your tests harder to write.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;With Spring Framework 4.3 it&amp;rsquo;s very easy to write components that use constructor injections as you no longer need to use &lt;code&gt;@Autowired&lt;/code&gt;. As long as you have a single constructor, Spring will implicitly consider it an autowire target:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@Component&#xD;
+public class MyComponent {&#xD;
+    &#xD;
+    private final SomeService service;&#xD;
+&#xD;
+    public MyComponent(SomeService service) {&#xD;
+        this.service = service;&#xD;
+    }&#xD;
+&#xD;
+} 
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Testing &lt;code&gt;MyComponent&lt;/code&gt; is now as simple as directly creating it, and calling some methods:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@Test&#xD;
+public void testSomeMethod() {&#xD;
+    SomeService service = mock(SomeService.class);&#xD;
+    MyComponent component = new MyComponent(service);&#xD;
+    // setup mock and class component methods&#xD;
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;h2&gt;&lt;a href="#spring-boot-1-3-recap" class="anchor" name="spring-boot-1-3-recap"&gt;&lt;/a&gt;Spring Boot 1.3 recap&lt;/h2&gt;
+&lt;p&gt;Of course, often you need to move a little further up the stack and start to write integration tests that &lt;em&gt;do&lt;/em&gt; involve Spring. Luckily, Spring Framework has the &lt;code&gt;spring-test&lt;/code&gt; module to help here, unluckily there a lot of different ways to use it with Spring Boot 1.3.&lt;/p&gt;
+&lt;p&gt;You might be using the &lt;code&gt;@ContextConfiguration&lt;/code&gt; annotation in combination with &lt;code&gt;SpringApplicationContextLoader&lt;/code&gt;:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@RunWith(SpringJUnit4ClassRunner.class)&#xD;
+@ContextConfiguration(classes=MyApp.class, loader=SpringApplicationContextLoader.class)&#xD;
+public class MyTest {&#xD;
+&#xD;
+    // ...&#xD;
+&#xD;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;You might have chosen &lt;code&gt;@SpringApplicationConfiguration&lt;/code&gt;:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@RunWith(SpringJUnit4ClassRunner.class)&#xD;
+@SpringApplicationConfiguration(MyApp.class)&#xD;
+public class MyTest {&#xD;
+&#xD;
+    // ...&#xD;
+&#xD;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;You might have combined either of them with &lt;code&gt;@IntegrationTest&lt;/code&gt;:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@RunWith(SpringJUnit4ClassRunner.class)&#xD;
+@SpringApplicationConfiguration(MyApp.class)&#xD;
+@IntegrationTest&#xD;
+public class MyTest {&#xD;
+&#xD;
+    // ...&#xD;
+&#xD;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Or with &lt;code&gt;@WebIntegrationTest&lt;/code&gt; (or possibly &lt;code&gt;@IntegrationTest&lt;/code&gt; + &lt;code&gt;@WebAppConfiguration&lt;/code&gt;)&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@RunWith(SpringJUnit4ClassRunner.class)&#xD;
+@SpringApplicationConfiguration(MyApp.class)&#xD;
+@WebIntegrationTest&#xD;
+public class MyTest {&#xD;
+&#xD;
+    // ...&#xD;
+&#xD;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;You can also throw into the mix running your server on a random port (&lt;code&gt;@WebIntegrationTest(randomPort=true)&lt;/code&gt;) and adding properties (using &lt;code&gt;@IntegrationTest(&amp;quot;myprop=myvalue&amp;quot;)&lt;/code&gt; or &lt;code&gt;@TestPropertySource(properties=&amp;quot;myprop=myvalue&amp;quot;)&lt;/code&gt;) &lt;/p&gt;
+&lt;p&gt;That&amp;rsquo;s a lot of choice!&lt;/p&gt;&lt;h2&gt;&lt;a href="#spring-boot-1-4-simplifications" class="anchor" name="spring-boot-1-4-simplifications"&gt;&lt;/a&gt;Spring Boot 1.4 simplifications&lt;/h2&gt;
+&lt;p&gt;With Spring Boot 1.4, things should get simpler. There is a single &lt;code&gt;@SpringBootTest&lt;/code&gt; annotation to use for regular tests, as well as some specialized variants for testing slices of your application (more on that later).&lt;/p&gt;
+&lt;p&gt;A typical Spring Boot 1.4 integration test will look like this:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@RunWith(SpringRunner.class)&#xD;
+@SpringBootTest(webEnvironment=WebEnvironment.RANDOM_PORT)&#xD;
+public class MyTest {&#xD;
+&#xD;
+    // ...&#xD;
+    &#xD;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Here&amp;rsquo;s a breakdown of what&amp;rsquo;s happening:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;code&gt;@RunWith(SpringRunner.class)&lt;/code&gt; tells JUnit to run using Spring&amp;rsquo;s testing support. &lt;code&gt;SpringRunner&lt;/code&gt; is the new name for &lt;code&gt;SpringJUnit4ClassRunner&lt;/code&gt;, it&amp;rsquo;s just a bit easier on the eye.&lt;/li&gt;
+  &lt;li&gt;&lt;code&gt;@SpringBootTest&lt;/code&gt; is saying &amp;ldquo;bootstrap with Spring Boot&amp;rsquo;s support&amp;rdquo; (e.g. load &lt;code&gt;application.properties&lt;/code&gt; and give me all the Spring Boot goodness)&lt;/li&gt;
+  &lt;li&gt;The &lt;code&gt;webEnvironment&lt;/code&gt; attribute allows specific &amp;ldquo;web environments&amp;rdquo; to be configured for the test. You can start tests with a &lt;code&gt;MOCK&lt;/code&gt; servlet environment or with a real HTTP server running on either a &lt;code&gt;RANDOM_PORT&lt;/code&gt; or a &lt;code&gt;DEFINED_PORT&lt;/code&gt;.&lt;/li&gt;
+  &lt;li&gt;If we want to load a specific configuration, we can use the &lt;code&gt;classes&lt;/code&gt; attribute of &lt;code&gt;@SpringBootTest&lt;/code&gt;. In this example, we&amp;rsquo;ve omitted &lt;code&gt;classes&lt;/code&gt; which means that the test will first attempt to load &lt;code&gt;@Configuration&lt;/code&gt; from any inner-classes, and if that fails, it will search for your primary &lt;code&gt;@SpringBootApplication&lt;/code&gt; class.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;The &lt;code&gt;@SpringBootTest&lt;/code&gt; annotation also has a &lt;code&gt;properties&lt;/code&gt; attribute that can be used to specify any additional properties that should be defined in the &lt;code&gt;Environment&lt;/code&gt;. Properties are now loaded in the exact same way as Spring&amp;rsquo;s regular &lt;code&gt;@TestPropertySource&lt;/code&gt; annotation.&lt;/p&gt;
+&lt;p&gt;Here&amp;rsquo;s a more concrete example that actually hits a real REST endpoint:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@RunWith(SpringRunner.class)&#xD;
+@SpringBootTest(webEnvironment=WebEnvironment.RANDOM_PORT)&#xD;
+public class MyTest {&#xD;
+    &#xD;
+    @Autowired&#xD;
+    private TestRestTemplate restTemplate;&#xD;
+&#xD;
+    @Test&#xD;
+    public void test() {&#xD;
+        this.restTemplate.getForEntity(&#xD;
+            &amp;quot;/{username}/vehicle&amp;quot;, String.class, &amp;quot;Phil&amp;quot;);&#xD;
+    }&#xD;
+&#xD;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Note that &lt;code&gt;TestRestTemplate&lt;/code&gt; is now available as bean whenever &lt;code&gt;@SpringBootTest&lt;/code&gt; is used. It&amp;rsquo;s pre-configured to resolve relative paths to &lt;code&gt;http://localhost:${local.server.port}&lt;/code&gt;. We could have also used the &lt;code&gt;@LocalServerPort&lt;/code&gt; annotation to inject the actual port that the server is running on into a test field.&lt;/p&gt;&lt;h2&gt;&lt;a href="#mocking-and-spying" class="anchor" name="mocking-and-spying"&gt;&lt;/a&gt;Mocking and spying&lt;/h2&gt;
+&lt;p&gt;When you start testing real systems, you often find it&amp;rsquo;s helpful to mock out specific beans. Common scenarios for mocking include simulating services that you can&amp;rsquo;t use when running tests, or testing failure scenarios that are difficult to trigger in a live system.&lt;/p&gt;
+&lt;p&gt;With Spring Boot 1.4 you can easily create a Mockito mocks that can replace an existing bean, or create a new one:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@RunWith(SpringRunner.class)&#xD;
+@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)&#xD;
+public class SampleTestApplicationWebIntegrationTests {&#xD;
+&#xD;
+    @Autowired&#xD;
+    private TestRestTemplate restTemplate;&#xD;
+&#xD;
+    @MockBean&#xD;
+    private VehicleDetailsService vehicleDetailsService;&#xD;
+&#xD;
+    @Before&#xD;
+    public void setup() {&#xD;
+        given(this.vehicleDetailsService.&#xD;
+            getVehicleDetails(&amp;quot;123&amp;quot;)&#xD;
+        ).willReturn(&#xD;
+            new VehicleDetails(&amp;quot;Honda&amp;quot;, &amp;quot;Civic&amp;quot;));&#xD;
+    }&#xD;
+&#xD;
+    @Test&#xD;
+    public void test() {&#xD;
+        this.restTemplate.getForEntity(&amp;quot;/{username}/vehicle&amp;quot;, &#xD;
+            String.class, &amp;quot;sframework&amp;quot;);&#xD;
+    }&#xD;
+&#xD;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;In this example we&amp;rsquo;re:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;Creating a Mockito mock for &lt;code&gt;VehicleDetailsService&lt;/code&gt;.&lt;/li&gt;
+  &lt;li&gt;Injecting it into the &lt;code&gt;ApplicationContext&lt;/code&gt; as a bean.&lt;/li&gt;
+  &lt;li&gt;Injecting it into the field in the test.&lt;/li&gt;
+  &lt;li&gt;Stubbing behavior in the &lt;code&gt;setup&lt;/code&gt; method.&lt;/li&gt;
+  &lt;li&gt;Trigger something that will ultimately call the mock.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Mocks will be automatically reset across tests. They also form part of the cache key used by Spring Test (so there&amp;rsquo;s no need to add &lt;code&gt;@DirtiesContext&lt;/code&gt;)&lt;/p&gt;
+&lt;p&gt;Spies work in a similar way. Simply annotate a test field with &lt;code&gt;@SpyBean&lt;/code&gt; to have a spy wrap any existing bean in the &lt;code&gt;ApplicationContext&lt;/code&gt;.&lt;/p&gt;&lt;h2&gt;&lt;a href="#json-assertions" class="anchor" name="json-assertions"&gt;&lt;/a&gt;JSON Assertions&lt;/h2&gt;
+&lt;p&gt;If you use the &lt;code&gt;spring-boot-starter-test&lt;/code&gt; POM to import test dependencies, starting with 1.4 you will get the excellent &lt;a href="http://joel-costigliola.github.io/assertj/"&gt;AssertJ&lt;/a&gt; library. AssertJ provides a fluent assertion API that replaces JUnit&amp;rsquo;s somewhat basic &lt;code&gt;org.junit.Assert&lt;/code&gt; class. If you&amp;rsquo;ve not seen it before, a basic AssertJ call looks something like this:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;assertThat(library.getName()).startsWith(&amp;quot;Spring&amp;quot;).endsWith(&amp;quot;Boot&amp;quot;);
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Spring Boot 1.4 offers extended assertions that you can use to check JSON marshalling and unmarshalling. JSON testers are available for both Jackson and Gson.&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;public class VehicleDetailsJsonTests {&#xD;
+&#xD;
+    private JacksonTester&amp;lt;VehicleDetails&amp;gt; json;&#xD;
+&#xD;
+    @Before&#xD;
+    public void setup() {&#xD;
+        ObjectMapper objectMappper = new ObjectMappper(); &#xD;
+        // Possibly configure the mapper&#xD;
+        JacksonTester.initFields(this, objectMappper);&#xD;
+    }&#xD;
+&#xD;
+    @Test&#xD;
+    public void serializeJson() {&#xD;
+        VehicleDetails details = &#xD;
+            new VehicleDetails(&amp;quot;Honda&amp;quot;, &amp;quot;Civic&amp;quot;);&#xD;
+&#xD;
+        assertThat(this.json.write(details))&#xD;
+            .isEqualToJson(&amp;quot;vehicledetails.json&amp;quot;);&#xD;
+&#xD;
+        assertThat(this.json.write(details))&#xD;
+            .hasJsonPathStringValue(&amp;quot;@.make&amp;quot;);&#xD;
+&#xD;
+        assertThat(this.json.write(details))&#xD;
+            .extractingJsonPathStringValue(&amp;quot;@.make&amp;quot;)&#xD;
+            .isEqualTo(&amp;quot;Honda&amp;quot;);&#xD;
+    }&#xD;
+&#xD;
+    @Test&#xD;
+    public void deserializeJson() {&#xD;
+        String content = &amp;quot;{\&amp;quot;make\&amp;quot;:\&amp;quot;Ford\&amp;quot;,\&amp;quot;model\&amp;quot;:\&amp;quot;Focus\&amp;quot;}&amp;quot;;&#xD;
+&#xD;
+        assertThat(this.json.parse(content))&#xD;
+            .isEqualTo(new VehicleDetails(&amp;quot;Ford&amp;quot;, &amp;quot;Focus&amp;quot;));&#xD;
+&#xD;
+        assertThat(this.json.parseObject(content).getMake())&#xD;
+            .isEqualTo(&amp;quot;Ford&amp;quot;);&#xD;
+    }&#xD;
+&#xD;
+}&#xD;
+
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;JSON comparisons are actually performed using &lt;a href="https://github.com/skyscreamer/JSONassert"&gt;JSONassert&lt;/a&gt;, so only the logical structure of the JSON needs to to match. You can also see in the example above how &lt;a href="https://github.com/jayway/JsonPath"&gt;JsonPath&lt;/a&gt; expressions can be used to test or extract data.&lt;/p&gt;&lt;h2&gt;&lt;a href="#testing-application-slices" class="anchor" name="testing-application-slices"&gt;&lt;/a&gt;Testing application slices&lt;/h2&gt;
+&lt;p&gt;Spring Boot&amp;rsquo;s auto-configuration feature is great for configuring all the things that an application needs to run. Unfortunately, full auto-configuration can sometimes be a little overkill for tests. Sometimes you just want to configure a &amp;ldquo;slice&amp;rdquo; of your application &amp;ndash; Is Jackson configured correctly? Do my MVC controllers return the correct status code? Are my JPA queries going to run?&lt;/p&gt;
+&lt;p&gt;With Spring Boot 1.4 these common scenarios are now easy to test. We&amp;rsquo;ve also made it easier to build your own annotations that apply only the auto-configuration classes that you need.&lt;/p&gt;&lt;h3&gt;&lt;a href="#testing-the-jpa-slice" class="anchor" name="testing-the-jpa-slice"&gt;&lt;/a&gt;Testing the JPA slice&lt;/h3&gt;
+&lt;p&gt;To test the JPA slice of your application (Hibernate + Spring Data) you can use the &lt;code&gt;@DataJpaTest&lt;/code&gt; annotation. A &lt;code&gt;@DataJpaTest&lt;/code&gt; will:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;Configure an in-memory database.&lt;/li&gt;
+  &lt;li&gt;Auto-configure Hibernate, Spring Data and the DataSource.&lt;/li&gt;
+  &lt;li&gt;Perform an &lt;code&gt;@EntityScan&lt;/code&gt;.&lt;/li&gt;
+  &lt;li&gt;Turn on SQL logging&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;A typical test looks like this:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@RunWith(SpringRunner.class)&#xD;
+@DataJpaTest&#xD;
+public class UserRepositoryTests {&#xD;
+&#xD;
+    @Autowired&#xD;
+    private TestEntityManager entityManager;&#xD;
+&#xD;
+    @Autowired&#xD;
+    private UserRepository repository;&#xD;
+&#xD;
+    @Test&#xD;
+    public void findByUsernameShouldReturnUser() {&#xD;
+        this.entityManager.persist(new User(&amp;quot;sboot&amp;quot;, &amp;quot;123&amp;quot;));&#xD;
+        User user = this.repository.findByUsername(&amp;quot;sboot&amp;quot;);&#xD;
+        &#xD;
+        assertThat(user.getUsername()).isEqualTo(&amp;quot;sboot&amp;quot;);&#xD;
+        assertThat(user.getVin()).isEqualTo(&amp;quot;123&amp;quot;);&#xD;
+    }&#xD;
+&#xD;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The &lt;code&gt;TestEntityManager&lt;/code&gt; in the above test is provided by Spring Boot. It&amp;rsquo;s an alternative to the standard JPA &lt;code&gt;EntityManager&lt;/code&gt; that provides methods commonly used when writing tests.&lt;/p&gt;&lt;h3&gt;&lt;a href="#testing-the-spring-mvc-slice" class="anchor" name="testing-the-spring-mvc-slice"&gt;&lt;/a&gt;Testing the Spring MVC slice&lt;/h3&gt;
+&lt;p&gt;To test the Spring MVC slice of your application you can use the &lt;code&gt;@WebMvcTest&lt;/code&gt; annotation. This will:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;Auto-configure Spring MVC, Jackson, Gson, Message converters etc.&lt;/li&gt;
+  &lt;li&gt;Load relevant components (&lt;code&gt;@Controller&lt;/code&gt;, &lt;code&gt;@RestController&lt;/code&gt;, &lt;code&gt;@JsonComponent&lt;/code&gt; etc)&lt;/li&gt;
+  &lt;li&gt;Configure MockMVC&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Here&amp;rsquo;s a typical example that tests a single controller:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@RunWith(SpringRunner.class)&#xD;
+@WebMvcTest(UserVehicleController.class)&#xD;
+public class UserVehicleControllerTests {&#xD;
+&#xD;
+    @Autowired&#xD;
+    private MockMvc mvc;&#xD;
+&#xD;
+    @MockBean&#xD;
+    private UserVehicleService userVehicleService;&#xD;
+&#xD;
+    @Test&#xD;
+    public void getVehicleShouldReturnMakeAndModel() {&#xD;
+        given(this.userVehicleService.getVehicleDetails(&amp;quot;sboot&amp;quot;))&#xD;
+            .willReturn(new VehicleDetails(&amp;quot;Honda&amp;quot;, &amp;quot;Civic&amp;quot;));&#xD;
+&#xD;
+        this.mvc.perform(get(&amp;quot;/sboot/vehicle&amp;quot;)&#xD;
+            .accept(MediaType.TEXT_PLAIN))&#xD;
+            .andExpect(status().isOk())&#xD;
+            .andExpect(content().string(&amp;quot;Honda Civic&amp;quot;));&#xD;
+    }&#xD;
+&#xD;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;If you prefer HtmlUnit, you can also use a &lt;code&gt;WebClient&lt;/code&gt; instead of &lt;code&gt;MockMvc&lt;/code&gt;. If selenium is more your thing, you can switch to a &lt;code&gt;WebDriver&lt;/code&gt;.&lt;/p&gt;&lt;h3&gt;&lt;a href="#testing-the-json-slice" class="anchor" name="testing-the-json-slice"&gt;&lt;/a&gt;Testing the JSON slice&lt;/h3&gt;
+&lt;p&gt;If you need to test that JSON serialization is working as expected, you can use &lt;code&gt;@JsonTest&lt;/code&gt;. This will:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;Auto-configure Jackson and/or Gson&lt;/li&gt;
+  &lt;li&gt;Add any &lt;code&gt;Module&lt;/code&gt; or &lt;code&gt;@JsonComonent&lt;/code&gt; beans that you&amp;rsquo;ve defined&lt;/li&gt;
+  &lt;li&gt;Trigger initialization of any &lt;code&gt;JacksonTester&lt;/code&gt; or &lt;code&gt;GsonTester&lt;/code&gt; fields&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Here&amp;rsquo;s an example:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@RunWith(SpringRunner.class)&#xD;
+@JsonTest&#xD;
+public class VehicleDetailsJsonTests {&#xD;
+&#xD;
+    private JacksonTester&amp;lt;VehicleDetails&amp;gt; json;&#xD;
+&#xD;
+    @Test&#xD;
+    public void serializeJson() {&#xD;
+        VehicleDetails details = new VehicleDetails(&#xD;
+            &amp;quot;Honda&amp;quot;, &amp;quot;Civic&amp;quot;);&#xD;
+&#xD;
+        assertThat(this.json.write(details))&#xD;
+            .extractingJsonPathStringValue(&amp;quot;@.make&amp;quot;)&#xD;
+            .isEqualTo(&amp;quot;Honda&amp;quot;);&#xD;
+    }&#xD;
+&#xD;
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;h2&gt;&lt;a href="#summary" class="anchor" name="summary"&gt;&lt;/a&gt;Summary&lt;/h2&gt;
+&lt;p&gt;If you want to try out the new testing features in Spring Boot 1.4 you can grab M2 from &lt;a href="http://repo.spring.io/snapshot/"&gt;http://repo.spring.io/snapshot/&lt;/a&gt;. There&amp;rsquo;s also a sample project &lt;a href="https://github.com/spring-projects/spring-boot/tree/v1.4.0.M2/spring-boot-samples/spring-boot-sample-test"&gt;available on GitHub&lt;/a&gt; as well as the &lt;a href="http://docs.spring.io/spring-boot/docs/1.3.0.M2/reference/htmlsingle/#boot-features-testing"&gt;updated documentation&lt;/a&gt;. If you&amp;rsquo;ve got any suggestions for addition &amp;ldquo;slices&amp;rdquo; that we should support, or any further improvements that you&amp;rsquo;d like to see, &lt;a href="https://github.com/spring-projects/spring-boot/issues/new"&gt;please raise an issue&lt;/a&gt;.&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <title>SpringOne Platform</title>
+    <link rel="alternate" href="https://spring.io/blog/2016/04/15/springone-platform" />
+    <category term="engineering" label="Engineering" />
+    <author>
+      <name>Josh Long</name>
+    </author>
+    <id>tag:spring.io,2016-04-14:2470</id>
+    <updated>2016-04-15T00:31:00Z</updated>
+    <content type="html">&lt;h2&gt;&lt;a href="#the-bigger-picture" class="anchor" name="the-bigger-picture"&gt;&lt;/a&gt;The Bigger Picture&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;Let&amp;rsquo;s talk about Pivotal&lt;/strong&gt;. Our ambition is to make business more agile, to reduce the time around the innovation loop; speed is the single biggest advantage an organization can have. Pivotal&amp;rsquo;s main &amp;ldquo;product&amp;rdquo; is agility. This translates naturally into technology. Microservices are well-defined, small, easy-to-evolve, independently deployable batches of functionality. They lend themselves to rapid iteration because they&amp;rsquo;re small. Spring Boot and the Spring ecosystem make short work of standing up new microservices and applications, and Spring Cloud handles the complexity in distributed computing. Cloud Foundry automates the continuous deployment and management of applications. Distributed systems create valuable data which, when processed, can help drive direction. Pivotal Labs, our transformation arm, is a pioneer in agile development methodologies and continuous delivery, both essential when iterating in a dynamic market. &lt;/p&gt;&lt;h2&gt;&lt;a href="#a-larger-audience-for-the-bigger-picture" class="anchor" name="a-larger-audience-for-the-bigger-picture"&gt;&lt;/a&gt;A Larger Audience for the Bigger Picture&lt;/h2&gt;
+&lt;p&gt;Success in 2016 requires a larger discussion between technologists than is happening today. The industry needs a bigger discussion to get people from more diverse communities and disciplines collaborating and communicating under the same roof. This is why we&amp;rsquo;re launching &lt;a href="http://springoneplatform.io/"&gt;&lt;strong&gt;SpringOne Platform, to be held in Las Vegas at the Aria hotel on August 1-4, 2016&lt;/strong&gt;&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Besides the obvious benefits of an unparalleled wealth of expertise from across the various Pivotal communities and appearances from luminaries like Adrian Cockcroft, community of increased communication, a wider perspective on modern software, and a bigger audience, there are many very practical benefits:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;Vegas, baby!&lt;/li&gt;
+  &lt;li&gt;Social time to meet and network with your peers, pivotal leaders, sponsors and partners&lt;/li&gt;
+  &lt;li&gt;Recorded session content - so you and your colleagues back at the office don’t miss a thing&lt;/li&gt;
+  &lt;li&gt;Highly affordable pre-conference training classes from Pivotal education&lt;/li&gt;
+  &lt;li&gt;Pivotal recruiting for job seekers&lt;/li&gt;
+  &lt;li&gt;Highly engaged and relevant sponsors&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;&lt;a href="http://springoneplatform.io/"&gt;We’re looking forward to meeting you at the conference&lt;/a&gt;&lt;/strong&gt; - it’s a unique opportunity to join several thousand people in expanding the conversation around modern software transformation! With over 225 submitted talks you can expect an amazing program, so consider &lt;a href="http://springoneplatform.io/register"&gt;getting the early price&lt;/a&gt; on tickets and / or pre-conference training before it expires on April 15th.&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <title>Spring Integration AWS 1.0.0.M1 is now available</title>
+    <link rel="alternate" href="https://spring.io/blog/2016/04/14/spring-integration-aws-1-0-0-m1-is-now-available" />
+    <category term="releases" label="Releases" />
+    <author>
+      <name>Artem Bilan</name>
+    </author>
+    <id>tag:spring.io,2016-04-13:2468</id>
+    <updated>2016-04-14T12:50:03Z</updated>
+    <content type="html">&lt;p&gt;Dear Spring Community,&lt;/p&gt;
+&lt;p&gt;On behalf of Spring Integration Team, I&amp;rsquo;m glad to announce that Spring Integration &lt;a href="https://aws.amazon.com/"&gt;AWS&lt;/a&gt; &lt;code&gt;1.0.0.M1&lt;/code&gt; is available now for download from the &lt;a href="http://repo.spring.io/milestone/"&gt;Spring milestone repository&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Since the &lt;a href="https://github.com/spring-projects/spring-integration-extensions/releases/tag/aws.v0.5.0.RELEASE"&gt;0.5.0&lt;/a&gt; pre-release version we have fully reworked the core bits for simpler programming model and introduced new components.&lt;br/&gt;Currently the Spring Integration AWS is based on the &lt;a href="https://github.com/spring-cloud/spring-cloud-aws"&gt;Spring Cloud AWS&lt;/a&gt; project at its foundation.&lt;/p&gt;
+&lt;p&gt;Thank you to all who have contributed to this milestone!&lt;/p&gt;&lt;h1&gt;&lt;a href="#highlights-of-this-milestone-include" class="anchor" name="highlights-of-this-milestone-include"&gt;&lt;/a&gt;Highlights of this Milestone include:&lt;/h1&gt;
+&lt;ul&gt;
+  &lt;li&gt;
+  &lt;p&gt;Amazon Simple Storage Service (S3) Adapters&lt;/p&gt;&lt;/li&gt;
+  &lt;li&gt;
+  &lt;p&gt;Amazon Simple Queue Service (SQS) Adapters&lt;/p&gt;&lt;/li&gt;
+  &lt;li&gt;
+  &lt;p&gt;Amazon Simple Notification Service (SNS) Adapters&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Please refer to Project &lt;a href="https://github.com/spring-projects/spring-integration-aws/blob/master/README.md"&gt;README&lt;/a&gt; for more information.&lt;/p&gt;&lt;h1&gt;&lt;a href="#next-steps" class="anchor" name="next-steps"&gt;&lt;/a&gt;Next Steps&lt;/h1&gt;
+&lt;ul&gt;
+  &lt;li&gt;Add AWS integration testing environment;&lt;/li&gt;
+  &lt;li&gt;Add &lt;a href="https://aws.amazon.com/kinesis/"&gt;Kinesis&lt;/a&gt; Adapters;&lt;/li&gt;
+  &lt;li&gt;Add &lt;a href="https://aws.amazon.com/dynamodb/"&gt;DynamoDB&lt;/a&gt; adapters and &lt;code&gt;MessageStore&lt;/code&gt; implementation;&lt;/li&gt;
+  &lt;li&gt;Add &lt;a href="https://aws.amazon.com/simpledb/"&gt;SimpleDb&lt;/a&gt; adapters and &lt;code&gt;MessageStore&lt;/code&gt; implementation;&lt;/li&gt;
+  &lt;li&gt;Add &lt;a href="http://cloud.spring.io/spring-cloud-stream/"&gt;Spring Cloud Stream&lt;/a&gt; binders;&lt;/li&gt;
+  &lt;li&gt;Add &lt;a href="http://cloud.spring.io/spring-cloud-stream/"&gt;Spring Cloud Stream&lt;/a&gt; applications for AWS adapters;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;In the meantime, we welcome any feedback, questions, or help. We would love to hear from you: &lt;/p&gt;
+&lt;p&gt;&lt;a href="https://github.com/spring-projects/spring-integration-aws"&gt;Project Page&lt;/a&gt; | &lt;a href="https://github.com/spring-projects/spring-integration-aws/issues"&gt;Issues&lt;/a&gt; | &lt;a href="http://stackoverflow.com/questions/tagged/spring-integration"&gt;Help&lt;/a&gt;&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <title>Couchbase as a First Class Citizen of Spring Boot 1.4</title>
+    <link rel="alternate" href="https://spring.io/blog/2016/04/14/couchbase-as-a-first-class-citizen-of-spring-boot-1-4" />
+    <category term="engineering" label="Engineering" />
+    <author>
+      <name>Stéphane Nicoll</name>
+    </author>
+    <id>tag:spring.io,2016-04-14:2469</id>
+    <updated>2016-04-14T09:52:55Z</updated>
+    <content type="html">&lt;blockquote&gt;
+  &lt;p&gt;This is a cross-post blog from Simon BASLÉ from &lt;a href="http://www.couchbase.com/"&gt;Couchbase&lt;/a&gt;. You can find him on twitter (&lt;a href="https://twitter.com/simonbasle"&gt;@simonbasle&lt;/a&gt;) or &lt;a href="https://github.com/simonbasle"&gt;github&lt;/a&gt;. Learn more about Couchbase and the Couchbase Java SDK on the &lt;a href="http://developer.couchbase.com/documentation/server/4.1/sdks/java-2.2/java-intro.html"&gt;developer portal&lt;/a&gt;.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;a href="https://spring.io/blog/2016/04/13/spring-boot-1-4-0-m2-available-now"&gt;&lt;code&gt;Spring Boot 1.4.0 MILESTONE 2&lt;/code&gt;&lt;/a&gt; is out! This is a good time to tell you about the joint effort between Spring Boot team members and the Couchbase Java SDK team to offer a first class integration of Couchbase into Spring Boot :)&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://gist.githubusercontent.com/simonbasle/534089ad60d29615b5d4a58e5054e341/raw/31fd6b28e69d0b2b7e49bb511299c13f978d07b1/springBootAndCouchbase.png" /&gt;&lt;/p&gt;
+&lt;p&gt;In &lt;code&gt;Spring Boot 1.4.0&lt;/code&gt;, Couchbase becomes a first class citizen of the Spring Boot ecosystem!&lt;/p&gt;&lt;h2&gt;&lt;a href="#couchbase-sdk-integration" class="anchor" name="couchbase-sdk-integration"&gt;&lt;/a&gt;Couchbase SDK Integration&lt;/h2&gt;
+&lt;p&gt;Spring Boot now directly recognizes when you have the &lt;code&gt;Couchbase SDK&lt;/code&gt; in your classpath. And when that&amp;rsquo;s the case, it instantiates a &lt;code&gt;Cluster&lt;/code&gt; and a &lt;code&gt;Bucket&lt;/code&gt; bean for you using &lt;em&gt;autoconfiguration&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;Spring Boot can pick up properties to further configure these core SDK classes, even the &lt;code&gt;CouchbaseEnvironment&lt;/code&gt;!&lt;/p&gt;
+&lt;p&gt;The following bootstrapping properties are recognized:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;spring.couchbase.bootstrap-hosts&#xD;
+spring.couchbase.bucket.name&#xD;
+spring.couchbase.bucket.password
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Environment tuning (IO endpoints, SSL support and default sync API timeouts) are exposed through the following properties:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;spring.couchbase.env.endpoints.key-value&#xD;
+spring.couchbase.env.endpoints.query&#xD;
+spring.couchbase.env.endpoints.view&#xD;
+&#xD;
+spring.couchbase.env.ssl.enabled&#xD;
+spring.couchbase.env.ssl.key-store&#xD;
+spring.couchbase.env.ssl.key-store-password&#xD;
+&#xD;
+spring.couchbase.env.timeouts.connect&#xD;
+spring.couchbase.env.timeouts.key-value&#xD;
+spring.couchbase.env.timeouts.query&#xD;
+spring.couchbase.env.timeouts.view
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now this is ?????????? support!&lt;/p&gt;
+&lt;blockquote&gt;
+  &lt;p&gt;&lt;strong&gt;WARNING&lt;/strong&gt;: Note that in the previous milestone the bootstrapping properties were prefixed with &amp;ldquo; &lt;code&gt;spring.*data*.couchbase&lt;/code&gt; &amp;rdquo;, now becoming &amp;ldquo; &lt;code&gt;spring.couchbase&lt;/code&gt; &amp;rdquo;.&lt;/p&gt;
+&lt;/blockquote&gt;&lt;h2&gt;&lt;a href="#spring-cache-implementation" class="anchor" name="spring-cache-implementation"&gt;&lt;/a&gt;Spring Cache Implementation&lt;/h2&gt;
+&lt;p&gt;The Spring Cache abstraction has a Couchbase 2.x implementation, &lt;a href="https://github.com/couchbaselabs/couchbase-spring-cache"&gt;&lt;code&gt;couchbase-spring-cache&lt;/code&gt;&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Spring Boot now recognizes this cache implementation when both the Java SDK and the &lt;code&gt;couchbase-spring-cache&lt;/code&gt; artifacts are on the classpath.&lt;/p&gt;
+&lt;p&gt;This integrates nicely with the previous section, seeing as the default underlying storage &lt;code&gt;Bucket&lt;/code&gt; for the caches is the one autoconfigured by Spring Boot :)&lt;/p&gt;
+&lt;blockquote&gt;
+  &lt;p&gt;&lt;strong&gt;NOTE&lt;/strong&gt;: The cache implementation has been pulled out of the Spring Data Couchbase project into its own project (in Couchbase&amp;rsquo;s github repository), so that it could be used and released separately from Spring Data.&lt;/p&gt;
+  &lt;p&gt;&lt;strong&gt;TIP&lt;/strong&gt;: Don&amp;rsquo;t forget to at least configure the &lt;code&gt;spring.couchbase.bootstrap-hosts&lt;/code&gt; property.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;This implementation of the &lt;code&gt;CacheManager&lt;/code&gt; allows for storing data from several caches into the same Couchbase bucket, by automatically prefixing the keys in Couchbase with the name of each cache.&lt;/p&gt;
+&lt;p&gt;The &lt;code&gt;CouchbaseCacheManager&lt;/code&gt; will automatically reuse the &lt;code&gt;Bucket&lt;/code&gt; autoconfigured by Spring Boot. By simply adding a property to declaratively list cache names, the corresponding caches will be pre-loaded:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;spring.cache.type=couchbase&#xD;
+spring.cache.cache-names=foo,bar
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Five-star support, we tell you!&lt;/p&gt;
+&lt;p&gt;You can even configure it to store data for different caches into multiple buckets. The caches can then be configured using a fluent builder pattern (eg. in a &lt;code&gt;CacheManagerCustomizer&amp;lt;CouchbaseCacheManager&amp;gt;&lt;/code&gt;). This &lt;code&gt;CacheBuilder&lt;/code&gt; also allows you to further tune the caches, like setting a default expiration time:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint java"&gt;@Configuration&#xD;
+public class CouchbaseCacheConfiguration {&#xD;
+&#xD;
+  private final Cluster cluster;&#xD;
+&#xD;
+  //inject the Cluster from Boot core Couchbase support&#xD;
+  public CouchbaseCacheConfiguration(Cluster cluster) {&#xD;
+    this.cluster = cluster;&#xD;
+  }&#xD;
+&#xD;
+  @Bean&#xD;
+  public Bucket anotherBucket() {&#xD;
+    return this.cluster.openBucket(&amp;quot;another&amp;quot;, &amp;quot;secret&amp;quot;);&#xD;
+  }&#xD;
+&#xD;
+  @Bean&#xD;
+  public CacheManagerCustomizer&amp;lt;CouchbaseCacheManager&amp;gt; cmCustomizer() {&#xD;
+    return c -&amp;gt; {&#xD;
+      c.prepareCache(&amp;quot;biz&amp;quot;, CacheBuilder&#xD;
+              .newInstance(anotherBucket())&#xD;
+              .withExpirationInMillis(2000));&#xD;
+    };&#xD;
+  }&#xD;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This implementation can use views to selectively clear caches that are collocated in the same Bucket.&lt;/p&gt;
+&lt;p&gt;Finally, it supports dynamic creation of caches as they are requested. To activate that, simply omit to declare any cache name and just activate Couchbase caching with the relevant property:&lt;/p&gt;
+&lt;pre&gt;&lt;code class="prettyprint"&gt;spring.cache.type=couchbase
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This will use the Spring Boot autoconfigured &lt;code&gt;Bucket&lt;/code&gt; as the default bucket for all dynamically created caches.&lt;/p&gt;
+&lt;p&gt;Fun with &lt;code&gt;@Cacheable&lt;/code&gt; awaits &#x1f44d;&lt;/p&gt;&lt;h2&gt;&lt;a href="#spring-data-integration" class="anchor" name="spring-data-integration"&gt;&lt;/a&gt;Spring Data Integration&lt;/h2&gt;
+&lt;p&gt;&lt;a href="http://projects.spring.io/spring-data-couchbase/"&gt;Spring Data Couchbase &lt;code&gt;2.1.0&lt;/code&gt;&lt;/a&gt; (release train Hopper) has included several modifications that makes integration with Spring Boot a breeze.&lt;/p&gt;
+&lt;p&gt;First the usual suspect: by default Spring Boot will autoconfigure Spring Data Couchbase to use the &lt;code&gt;Bucket&lt;/code&gt; it created. This is made possible by having separated the core SDK configuration parts into a &lt;code&gt;CouchbaseConfigurer&lt;/code&gt; class, while what is really specific to Spring Data is located in a new base class, &lt;code&gt;AbstractCouchbaseDataConfiguration&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;If you use only Spring Data, you can go ahead and continue using the &lt;code&gt;AbstractCouchbaseConfiguration&lt;/code&gt;, which is now both a CouchbaseConfigurer and an AbstractCouchbaseDataConfiguration.&lt;/p&gt;
+&lt;p&gt;If you use Spring Boot however, it will autoconfigure a &lt;code&gt;CouchbaseConfigurer&lt;/code&gt;. You can always tune your own &lt;code&gt;AbstractCouchbaseDataConfiguration&lt;/code&gt; and inject the configurer in it.&lt;/p&gt;&lt;h3&gt;&lt;a href="#other-spring-data-couchbase-features" class="anchor" name="other-spring-data-couchbase-features"&gt;&lt;/a&gt;Other Spring Data Couchbase Features&lt;/h3&gt;
+&lt;p&gt;The 2.1.0 release also includes a few new features:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;Optional automatic &lt;code&gt;touch&lt;/code&gt; (refreshing the expiry of a document) on reads (&lt;a href="https://jira.spring.io/browse/DATACOUCH-59"&gt;DATACOUCH-59&lt;/a&gt;)&lt;/li&gt;
+  &lt;li&gt;Improvements to sorting and pagination (&lt;a href="https://jira.spring.io/browse/DATACOUCH-211"&gt;DATACOUCH-211&lt;/a&gt;, &lt;a href="https://jira.spring.io/browse/DATACOUCH-214"&gt;DATACOUCH-214&lt;/a&gt;)&lt;/li&gt;
+  &lt;li&gt;Added support for auditing (eg. &lt;code&gt;@CreatedBy&lt;/code&gt; annotation, &lt;a href="https://jira.spring.io/browse/DATACOUCH-91"&gt;DATACOUCH-91&lt;/a&gt;)&lt;/li&gt;
+&lt;/ul&gt;&lt;h2&gt;&lt;a href="#conclusion" class="anchor" name="conclusion"&gt;&lt;/a&gt;Conclusion&lt;/h2&gt;
+&lt;p&gt;Go grab that ?????????? MILESTONE!&lt;/p&gt;
+&lt;p&gt;As always, feedback is welcome (in the Spring Data &lt;a href="https://jira.spring.io/browse/DATACOUCH"&gt;issue tracker&lt;/a&gt;, Spring Boot &lt;a href="https://github.com/spring-projects/spring-boot/issues?utf8=%E2%9C%93&amp;q=is%3Aissue+couchbase"&gt;issue tracker&lt;/a&gt; or on the &lt;a href="https://forums.couchbase.com/c/java-sdk"&gt;Couchbase forums&lt;/a&gt;).&lt;/p&gt;
+&lt;p&gt;Happy Coding!&lt;/p&gt;</content>
+  </entry>
   <entry>
     <title>Overriding Dependency Versions with Spring Boot</title>
     <link rel="alternate" href="https://spring.io/blog/2016/04/13/overriding-dependency-versions-with-spring-boot" />
@@ -541,233 +981,5 @@ public MessageHandler kafkaProducerHandler(&#xD;
     <updated>2016-04-05T14:38:00Z</updated>
     <content type="html">&lt;p&gt;Recorded at SpringOne2GX 2015.&lt;br/&gt;Speakers: Michael Wilmes, Lufthansa and Laurent Doguin, Couchbase&lt;br/&gt;Data / Integration Track&lt;br/&gt;&lt;a href="http://www.slideshare.net/SpringCentral/inflight-asset-management-with-spring-data-and-neo4j"&gt;http://www.slideshare.net/SpringCentral/inflight-asset-management-with-spring-data-and-neo4j&lt;/a&gt;&lt;br/&gt;We invite you to join these two speakers from the Spring Data community, each speaking about their respective projects for 45 minutes.&lt;br/&gt;Michael Wilmes from Lufthansa Systems will speak about Graph-based Asset Management with the Spring Framework. He is part of a flagship project that brings next-generation Inflight-Entertainment systems onto passenger aircrafts, and tackles the operational aspects of managing IT systems in flight, on ground and anywhere in between. Within his talk he will give insight on how Lufthansa Systems leverages the Spring Stack for solving an asset management problem scope with Spring Data and Neo4j.&lt;br/&gt;Next, Laurent Doguin from Couchbase will tell us how to &amp;ldquo;Manage Time-base data with Spring Data Couchbase&amp;rdquo;. A common thing to do in the big data world is store time-based data. It can be logs, user events, social media metrics, market data indicators or even more common now sensor data. You can do that very easily with Spring Data Couchbase. I this talk I will tell you what you need to know before starting to store time-based data. I&amp;rsquo;ll talk about use cases, data modeling, how Couchbase is a perfect fit for this kind of job and code a little demo that reflects all of this.&lt;/p&gt;
 &lt;iframe width="560" height="315" src="https://www.youtube.com/embed/SigEreDcHr4" frameborder="0" allowfullscreen&gt;&lt;/iframe&gt;</content>
-  </entry>
-  <entry>
-    <title>1 Stream, 2 Applications, and 3 Dependencies for Spring Cloud Data Flow</title>
-    <link rel="alternate" href="https://spring.io/blog/2016/04/05/1-stream-2-applications-and-3-dependencies-for-spring-cloud-data-flow" />
-    <category term="engineering" label="Engineering" />
-    <author>
-      <name>Josh Long</name>
-    </author>
-    <id>tag:spring.io,2016-04-05:2452</id>
-    <updated>2016-04-05T13:56:00Z</updated>
-    <content type="html">&lt;p&gt;I just wanted to register here an experience that made me smile yesterday: making the rapidly improving &lt;a href="http://cloud.spring.io/spring-cloud-dataflow/"&gt;Spring Cloud Data Flow&lt;/a&gt; wiggle from (Spring Boot) start(-ers) to service in a matter of minutes!&lt;/p&gt;
-&lt;blockquote&gt;
-  &lt;p&gt;The only pre-requisite is that you have a Redis instance runnning. My Redis instance is running on &lt;code&gt;127.0.0.1&lt;/code&gt; and it required no further configuration for Spring Boot to find and work with it.&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;p&gt;We&amp;rsquo;ll use the epic &lt;a href="http://start.spring.io"&gt;Spring Initializr&lt;/a&gt; to make short work of generating our applications. Remember those silly Apple commercials, &amp;ldquo;There&amp;rsquo;s an App For That?&amp;rdquo; Nevermind that, &lt;em&gt;there&amp;rsquo;s a &lt;strong&gt;checkbox&lt;/strong&gt; for that!&lt;/em&gt; Let&amp;rsquo;s see if you like the experience as much as I did!&lt;/p&gt;&lt;h2&gt;&lt;a href="#a-local-data-flow-server" class="anchor" name="a-local-data-flow-server"&gt;&lt;/a&gt;A Local Data Flow Server&lt;/h2&gt;
-&lt;p&gt;Go to the &lt;a href="http://start.spring.io/"&gt;Spring Initializr&lt;/a&gt; and select &lt;code&gt;Local Data Flow Server&lt;/code&gt; and name the artifact &lt;code&gt;df-server&lt;/code&gt;. This will be used to standup a local Data Flow service - a REST API and some persistence logic - to orchestrate and store information about streams and tasks. In the old Spring XD world, this was called the Spring XD &lt;em&gt;Admin Server&lt;/em&gt;.&lt;/p&gt;
-&lt;img src="https://raw.githubusercontent.com/joshlong/meh/master/df-123/initializr-df-server.png" /&gt;
-&lt;p&gt;Open the project in your IDE of choice and add &lt;code&gt;@EnableDataFlowServer&lt;/code&gt; to the &lt;code&gt;DfServerApplication&lt;/code&gt; class:&lt;/p&gt;
-&lt;pre&gt;&lt;code class="prettyprint java"&gt;package com.example;&#xD;
-&#xD;
-import org.springframework.boot.SpringApplication;&#xD;
-import org.springframework.boot.autoconfigure.SpringBootApplication;&#xD;
-import org.springframework.cloud.dataflow.server.EnableDataFlowServer;&#xD;
-&#xD;
-@EnableDataFlowServer&#xD;
-@SpringBootApplication&#xD;
-public class DfServerApplication {&#xD;
-&#xD;
-	public static void main(String[] args) {&#xD;
-		SpringApplication.run(DfServerApplication.class, args);&#xD;
-	}&#xD;
-}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;Run &lt;code&gt;mvn spring-boot:run&lt;/code&gt; in the root of the &lt;code&gt;df-server&lt;/code&gt; project and the application will spin up on port &lt;code&gt;9393&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;TIP&lt;/strong&gt;: You&amp;rsquo;ll know you&amp;rsquo;re (probably) home-free when you see the welcome ASCII artwork!&lt;/p&gt;
-&lt;img src="https://raw.githubusercontent.com/joshlong/meh/master/df-123/df-ascii.png" /&gt;
-&lt;p&gt;&lt;strong&gt;TIP about the TIP&lt;/strong&gt;: so, that&amp;rsquo;s probably not true. It might fail for all sorts of reasons (like conflicting ports for the service or for the embedded H2 database), but quality ASCII artwork has been shown to be therapeutic in (my) study.. (of.. me).&lt;/p&gt;&lt;h2&gt;&lt;a href="#a-data-flow-shell" class="anchor" name="a-data-flow-shell"&gt;&lt;/a&gt;A Data Flow Shell&lt;/h2&gt;
-&lt;p&gt;Go to the Spring Initializr and select &lt;code&gt;Data Flow Shell&lt;/code&gt; and named the artifact &lt;code&gt;df-shell&lt;/code&gt;. This will be used to standup a Data Flow shell powered by Spring Shell.&lt;/p&gt;
-&lt;img src="https://raw.githubusercontent.com/joshlong/meh/master/df-123/initializr-df-shell.png" /&gt;
-&lt;p&gt;The Data Flow shell runs on any operating system. It&amp;rsquo;s a client for the Data Flow service we&amp;rsquo;ve just stood up. It let&amp;rsquo;s us operate the service using a familiar pipes-and-filters DSL and commands. I love good banner ASCII artwork as much as the next developer, there &lt;em&gt;is&lt;/em&gt; (gulp!) such a thing as too much of a good thing. By default, &lt;em&gt;both&lt;/em&gt; Spring Shell &lt;em&gt;and&lt;/em&gt; Spring Boot will both try to emit an ASCII banner, so we&amp;rsquo;ll Spring Boot to keep out of this (this time!). Open the project in your IDE of choice and add &lt;code&gt;@EnableDataFlowShell&lt;/code&gt; to the &lt;code&gt;DfShellApplication&lt;/code&gt; class and then configure how the &lt;code&gt;SpringApplication&lt;/code&gt; is created to hide the Spring Boot banner:&lt;/p&gt;
-&lt;pre&gt;&lt;code class="prettyprint java"&gt;package com.example;&#xD;
-&#xD;
-import org.springframework.boot.Banner;&#xD;
-import org.springframework.boot.autoconfigure.SpringBootApplication;&#xD;
-import org.springframework.boot.builder.SpringApplicationBuilder;&#xD;
-import org.springframework.cloud.dataflow.shell.EnableDataFlowShell;&#xD;
-&#xD;
-@EnableDataFlowShell&#xD;
-@SpringBootApplication&#xD;
-public class DfShellApplication {&#xD;
-&#xD;
-	public static void main(String[] args) {&#xD;
-		new SpringApplicationBuilder(DfShellApplication.class)&#xD;
-				.bannerMode(Banner.Mode.OFF)&#xD;
-				.run(args);&#xD;
-	}&#xD;
-}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;Run &lt;code&gt;mvn spring-boot:run&lt;/code&gt; in the root of the &lt;code&gt;df-shell&lt;/code&gt; project. You should be able to interact with the Data Flow server, running locally, by default. Try it out by issuing the &lt;code&gt;module list&lt;/code&gt; command. You should see a table of all the in-built components that Spring Cloud Data Flow already knows about.&lt;/p&gt;
-&lt;img src="https://raw.githubusercontent.com/joshlong/meh/master/df-123/df-shell-module-list.png" /&gt;&lt;h2&gt;&lt;a href="#a-logging-sink-module" class="anchor" name="a-logging-sink-module"&gt;&lt;/a&gt;A Logging Sink Module&lt;/h2&gt;
-&lt;p&gt;Go to the Spring Initializr and select &lt;code&gt;Stream Redis&lt;/code&gt; and name the artifact &lt;code&gt;logging-sink&lt;/code&gt;. We&amp;rsquo;re going to use Spring Cloud Stream, which builds atop Spring&amp;rsquo;s &lt;code&gt;MessageChannel&lt;/code&gt; abstraction and the component model in Spring Integration to make concise the work of describing and integrating messaging-based microservices, to build a &lt;em&gt;custom&lt;/em&gt; module that logs incoming messages. We&amp;rsquo;ll then deploy and orchestrate this module with Spring Cloud Data Flow.&lt;/p&gt;
-&lt;img src="https://raw.githubusercontent.com/joshlong/meh/master/df-123/initializr-logging-sink.png" /&gt;
-&lt;p&gt;Spring Cloud Data Flow is a powerful way to describe complex integration, batch and stream processing workloads in terms of small Spring Boot-powered modules. There are several types of &lt;code&gt;module&lt;/code&gt;s. A &lt;code&gt;source&lt;/code&gt; produces data, often on a fixed schedule, that downstream components may consume and process. A &lt;code&gt;processor&lt;/code&gt; takes data in, does something with it, and writes data out. A &lt;code&gt;sink&lt;/code&gt; merely takes data in but does not produce anything to be sent out. These components compose nicely together to describe any kind of potentially ceasless workload (internet-of-things sensor data, 24/7 event processing, online transaction data ingest and integration scenarios, etc.) Ultimately, a source is &lt;em&gt;usually&lt;/em&gt; a Spring Integration inbound adapter. A processor is &lt;em&gt;usually&lt;/em&gt; any kind of Spring Integration component (like a transformer) that takes data in and produces data out. A sink is &lt;em&gt;usually&lt;/em&gt; a Spring Integration outbound adapter.&lt;/p&gt;
-&lt;p&gt;A &lt;code&gt;task&lt;/code&gt; describes any workload that will, ultimately, stop. It might be a simple Spring Boot &lt;code&gt;Command Line Runner&lt;/code&gt; or a Spring Batch &lt;code&gt;Job&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;Spring Cloud Data Flow doesn&amp;rsquo;t have particular knowledge of Spring Integration, though. It just knows about Spring Cloud Stream and well-known Spring &lt;code&gt;MessageChannels&lt;/code&gt; like &lt;code&gt;input&lt;/code&gt; and &lt;code&gt;output&lt;/code&gt;. It doesn&amp;rsquo;t care what is on the terminuses of those channels. Spring Cloud Data Flow doesn&amp;rsquo;t have particularly knowledge of Spring Batch, either. It just knows about Spring Cloud Task.&lt;/p&gt;
-&lt;p&gt;In the way that the UNIX &lt;code&gt;sh&lt;/code&gt; shell environment lets us compose arbitrary many and arbitrarily sophisticated solutions from singly-focused command-line utilities by passing data to and from &lt;code&gt;stdin&lt;/code&gt; and &lt;code&gt;stdout&lt;/code&gt;, respectively, so too does Spring Cloud Data Flow let us compose arbitrary many and arbitrarily sophisticated solutions from singly-focused messaging components.&lt;/p&gt;
-&lt;p&gt;Spring Cloud Data Flow has lots of &lt;em&gt;batteries included&lt;/em&gt; already. We&amp;rsquo;re going to develop and install a simple module to log things - in our case, the time. It&amp;rsquo;s worth noting that we&amp;rsquo;re going to do this for our own edification, but we don&amp;rsquo;t &lt;em&gt;need&lt;/em&gt; to do this; Spring Cloud Data Flow already provides a &lt;code&gt;log&lt;/code&gt; module! (and a &lt;code&gt;time&lt;/code&gt; module!)&lt;/p&gt;
-&lt;pre&gt;&lt;code class="prettyprint java"&gt;package com.example;&#xD;
-&#xD;
-import org.springframework.boot.SpringApplication;&#xD;
-import org.springframework.boot.autoconfigure.SpringBootApplication;&#xD;
-import org.springframework.cloud.stream.annotation.EnableBinding;&#xD;
-import org.springframework.cloud.stream.messaging.Sink;&#xD;
-import org.springframework.integration.annotation.MessageEndpoint;&#xD;
-import org.springframework.integration.annotation.ServiceActivator;&#xD;
-import org.springframework.messaging.handler.annotation.Headers;&#xD;
-import org.springframework.messaging.handler.annotation.Payload;&#xD;
-&#xD;
-import java.util.Map;&#xD;
-&#xD;
-@EnableBinding(Sink.class)&#xD;
-@SpringBootApplication&#xD;
-public class LoggingSinkApplication {&#xD;
-&#xD;
-	@MessageEndpoint&#xD;
-	public static class LoggingMessageEndpoint {&#xD;
-&#xD;
-		@ServiceActivator(inputChannel = Sink.INPUT)&#xD;
-		public void logIncomingMessages(&#xD;
-				@Payload String msg,&#xD;
-				@Headers Map&amp;lt;String, Object&amp;gt; headers) {&#xD;
-&#xD;
-			System.out.println(msg);&#xD;
-			headers.entrySet().forEach(e -&amp;gt;&#xD;
-					System.out.println(e.getKey() + &amp;#39;=&amp;#39; + e.getValue()));&#xD;
-&#xD;
-		}&#xD;
-	}&#xD;
-&#xD;
-	public static void main(String[] args) {&#xD;
-		SpringApplication.run(LoggingSinkApplication.class, args);&#xD;
-	}&#xD;
-}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;This is a simple Spring Cloud Stream binding. The &lt;code&gt;Sink.class&lt;/code&gt; is an interface that defines a &lt;code&gt;MessageChannel input()&lt;/code&gt;. Spring Cloud Stream will turn that into a live, named conduit to a message broker (in this case, Redis, though the default for Spring Cloud Data Flow will likely change to RabbitMQ in coming months) that any of our messaging code can work with. The example uses Spring Integration to print incoming message data out on arrival. Let&amp;rsquo;s first register our custom module with Data Flow and then compose a stream that takes incoming messages containing the time from a &lt;code&gt;time&lt;/code&gt; component and then logs the results.&lt;/p&gt;
-&lt;p&gt;First, &lt;code&gt;mvn clean install&lt;/code&gt; the &lt;code&gt;logging-sink&lt;/code&gt; project so that it&amp;rsquo;s resolvable in the local Maven repository. Spring Cloud Data Flow uses a pluggable strategy to resolve instances of custom modules. In our example, it&amp;rsquo;ll try to resolve them in our system local Maven repository.&lt;/p&gt;
-&lt;p&gt;Return to the Data Flow Shell and enter the following:&lt;/p&gt;
-&lt;pre&gt;&lt;code class="prettyprint shell"&gt;dataflow:&amp;gt;module register --name custom-log --type sink --uri maven://com.example:logging-sink:jar:0.0.1-SNAPSHOT&#xD;
-Successfully registered module &amp;#39;sink:custom-log&amp;#39;&#xD;
-&#xD;
-dataflow:&amp;gt;module list&#xD;
-???????????????????????????????????????????????????????????????&#xD;
-?    source    ?   processor    ?       sink        ?  task   ?&#xD;
-???????????????????????????????????????????????????????????????&#xD;
-?file          ?bridge          ?aggregate-counter  ?timestamp?&#xD;
-?ftp           ?filter          ?cassandra          ?         ?&#xD;
-?http          ?groovy-filter   ?counter            ?         ?&#xD;
-?jdbc          ?groovy-transform?custom-log         ?         ?&#xD;
-?jms           ?httpclient      ?field-value-counter?         ?&#xD;
-?load-generator?pmml            ?file               ?         ?&#xD;
-?rabbit        ?splitter        ?ftp                ?         ?&#xD;
-?sftp          ?transform       ?gemfire            ?         ?&#xD;
-?tcp           ?                ?gpfdist            ?         ?&#xD;
-?time          ?                ?hdfs               ?         ?&#xD;
-?trigger       ?                ?jdbc               ?         ?&#xD;
-?twitterstream ?                ?log                ?         ?&#xD;
-?              ?                ?rabbit             ?         ?&#xD;
-?              ?                ?redis              ?         ?&#xD;
-?              ?                ?router             ?         ?&#xD;
-?              ?                ?tcp                ?         ?&#xD;
-?              ?                ?throughput         ?         ?&#xD;
-?              ?                ?websocket          ?         ?&#xD;
-???????????????????????????????????????????????????????????????&#xD;
-&#xD;
-dataflow:&amp;gt;stream create --name time-to-log --definition &amp;#39;time | custom-log&amp;#39;&#xD;
-Created new stream &amp;#39;time-to-log&amp;#39;&#xD;
-&#xD;
-dataflow:&amp;gt;stream list&#xD;
-??????????????????????????????????????????&#xD;
-?Stream Name?Stream Definition?  Status  ?&#xD;
-??????????????????????????????????????????&#xD;
-?time-to-log?time | custom-log?undeployed?&#xD;
-??????????????????????????????????????????&#xD;
-&#xD;
-dataflow:&amp;gt;stream deploy --name time-to-log&#xD;
-Deployed stream &amp;#39;time-to-log&amp;#39;
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;You&amp;rsquo;ll see in the Data Flow service logs that the modules have been started and stitched together. In my particular logs I observed:&lt;/p&gt;
-&lt;pre&gt;&lt;code class="prettyprint"&gt;2016-04-05 09:09:18.067  INFO 58339 --- [nio-9393-exec-3] o.s.c.d.spi.local.LocalAppDeployer       : deploying app time-to-log.custom-log instance 0&#xD;
-   Logs will be in /var/folders/cr/grkckb753fld3lbmt386jp740000gn/T/spring-cloud-dataflow-2481763302070183542/time-to-log-1459861757641/time-to-log.custom-log&#xD;
-2016-04-05 09:09:30.838  INFO 58339 --- [nio-9393-exec-3] o.s.c.d.spi.local.LocalAppDeployer       : deploying app time-to-log.time instance 0&#xD;
-   Logs will be in /var/folders/cr/grkckb753fld3lbmt386jp740000gn/T/spring-cloud-dataflow-2481763302070183542/time-to-log-1459861757641/time-to-log.time&#xD;
-
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;Tail the logs to confirm what you already know in your heart of hearts: our custom &lt;code&gt;logging-sink&lt;/code&gt; is working!&lt;/p&gt;
-&lt;pre&gt;&lt;code class="prettyprint"&gt;tail -f /var/folders/cr/grkckb753fld3lbmt386jp740000gn/T/spring-cloud-dataflow-2481763302070183542/time-to-log-1459861757641/time-to-log.custom-log/std*
-&lt;/code&gt;&lt;/pre&gt;&lt;h2&gt;&lt;a href="#next-steps" class="anchor" name="next-steps"&gt;&lt;/a&gt;Next Steps&lt;/h2&gt;
-&lt;p&gt;To the cloud! We&amp;rsquo;re using the Local Data Flow Server. There are other implementations available for processing fabrics like Cloud Foundry. The Cloud Foundry Data Flow Server spins up application instances instead of local Java processes. Now, building a scalable data ingest and processing stream is as easy as &lt;code&gt;cf push ..&lt;/code&gt; and &lt;code&gt;cf scale -i $MOAR&lt;/code&gt;!&lt;/p&gt;
-&lt;p&gt;We&amp;rsquo;re using but a few of Spring Cloud Data Flow&amp;rsquo;s capabilities! Use Spring Cloud Data Flow to orchestrate any number of messaging-based microservices powered by Spring Cloud Stream. I&amp;rsquo;d recommend a look at some of &lt;a href="https://github.com/spring-cloud/spring-cloud-stream-modules"&gt;the built-in Spring Cloud Stream modules&lt;/a&gt; for inspiration.&lt;/p&gt;</content>
-  </entry>
-  <entry>
-    <title>Spring LDAP 2.1.0.RC1 Released</title>
-    <link rel="alternate" href="https://spring.io/blog/2016/03/31/spring-ldap-2-1-0-rc1-released" />
-    <category term="releases" label="Releases" />
-    <author>
-      <name>Rob Winch</name>
-    </author>
-    <id>tag:spring.io,2016-03-31:2449</id>
-    <updated>2016-03-31T13:30:55Z</updated>
-    <content type="html">&lt;p&gt;I’m pleased to announce the release of Spring LDAP 2.1.0.RC1. The highlights of this release include:&lt;/p&gt;
-&lt;ul&gt;
-  &lt;li&gt;&lt;a href="https://github.com/spring-projects/spring-ldap/issues/380"&gt;#380&lt;/a&gt; - Support for Spring Data Hopper&lt;/li&gt;
-  &lt;li&gt;&lt;a href="https://github.com/spring-projects/spring-ldap/issues/384"&gt;#384&lt;/a&gt; - Early support for Spring IO Platform 2.1&lt;/li&gt;
-  &lt;li&gt;&lt;a href="https://github.com/spring-projects/spring-ldap/issues/351"&gt;#351&lt;/a&gt; - Support for commons-pool2&lt;/li&gt;
-  &lt;li&gt;&lt;a href="https://github.com/spring-projects/spring-ldap/issues/370"&gt;#370&lt;/a&gt; - Support property placeholders in XML Namespace&lt;/li&gt;
-  &lt;li&gt;&lt;a href="https://github.com/spring-projects/spring-ldap/pull/392"&gt;#392&lt;/a&gt; - Document Testing Support&lt;/li&gt;
-  &lt;li&gt;Migrated from JIRA to &lt;a href="https://github.com/spring-projects/spring-ldap/issues"&gt;GitHub Issues&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;Added &lt;a href="https://gitter.im/spring-projects/spring-ldap"&gt;Gitter Chat&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;For complete details of 2.1 refer to the &lt;a href="https://github.com/spring-projects/spring-ldap/issues?q=milestone%3A2.1.0.RC1"&gt;changelog&lt;/a&gt;&lt;/p&gt;&lt;h1&gt;&lt;a href="#contributions" class="anchor" name="contributions"&gt;&lt;/a&gt;Contributions&lt;/h1&gt;
-&lt;p&gt;Without the community we couldn&amp;rsquo;t be the successful project we are today. I&amp;rsquo;d like to thank everyone that created issues &amp;amp; provided feedback. A special thanks to the following people who provided pull requests for this release:&lt;/p&gt;
-&lt;ul&gt;
-  &lt;li&gt;&lt;a href="https://github.com/spring-projects/spring-ldap/pull/377"&gt;#377&lt;/a&gt; - Fix DirContextAdapter when adding Name attributes Thanks &lt;a href="https://github.com/eddumelendez"&gt;Eddú Meléndez Gonzales&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href="https://github.com/spring-projects/spring-ldap/pull/379"&gt;#379&lt;/a&gt; - LDAP-338: support property placeholders in XML Namespace Thanks &lt;a href="https://github.com/eddumelendez"&gt;Eddú Meléndez Gonzales&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href="https://github.com/spring-projects/spring-ldap/pull/383"&gt;#383&lt;/a&gt; - Update to Sonarqube Plugin Thanks &lt;a href="https://github.com/eddumelendez"&gt;Eddú Meléndez Gonzales&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href="https://github.com/spring-projects/spring-ldap/pull/388"&gt;#388&lt;/a&gt; - Support integer property placeholders for pool and pool2 Thanks &lt;a href="https://github.com/eddumelendez"&gt;Eddú Meléndez Gonzales&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href="https://github.com/spring-projects/spring-ldap/pull/390"&gt;#390&lt;/a&gt; - Upgrade to Spring Data Hopper Thanks &lt;a href="https://github.com/eddumelendez"&gt;Eddú Meléndez Gonzales&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href="https://github.com/spring-projects/spring-ldap/pull/392"&gt;#392&lt;/a&gt; - Add documentation for Testing Thanks &lt;a href="https://github.com/eddumelendez"&gt;Eddú Meléndez Gonzales&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href="https://github.com/spring-projects/spring-ldap/pull/394"&gt;#394&lt;/a&gt; - Upgrade to Gradle 2.12 Thanks &lt;a href="https://github.com/eddumelendez"&gt;Eddú Meléndez Gonzales&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;&lt;h1&gt;&lt;a href="#feedback-please" class="anchor" name="feedback-please"&gt;&lt;/a&gt;Feedback Please&lt;/h1&gt;
-&lt;p&gt;If you have feedback on this release, I encourage you to reach out via &lt;a href="http://stackoverflow.com/questions/tagged/spring-ldap"&gt;StackOverflow&lt;/a&gt;, &lt;a href="https://github.com/spring-projects/spring-ldap/issues"&gt;GitHub Issues&lt;/a&gt;, or via the comments section. You can also ping me &lt;a href="https://twitter.com/rob_winch"&gt;@rob_winch&lt;/a&gt; or Joe (our latest full time Spring Security team member) &lt;a href="https://twitter.com/joe_grandja"&gt;@joe_grandja&lt;/a&gt; on Twitter.&lt;/p&gt;
-&lt;p&gt;&lt;a href="http://projects.spring.io/spring-ldap/"&gt;Project Site&lt;/a&gt; | &lt;a href="http://docs.spring.io/spring-ldap/docs/2.1.0.RC1/reference/"&gt;Reference&lt;/a&gt; | &lt;a href="https://github.com/spring-projects/spring-ldap/issues"&gt;Issues&lt;/a&gt;&lt;/p&gt;</content>
-  </entry>
-  <entry>
-    <title>Webinar Replay: Up and Running with Spring Boot in NetBeans IDE</title>
-    <link rel="alternate" href="https://spring.io/blog/2016/03/30/webinar-replay-up-and-running-with-spring-boot-in-netbeans-ide" />
-    <category term="news" label="News and Events" />
-    <author>
-      <name>Pieter Humphrey</name>
-    </author>
-    <id>tag:spring.io,2016-03-31:2448</id>
-    <updated>2016-03-30T18:35:00Z</updated>
-    <content type="html">&lt;p&gt;Guest Speaker: Geertjan Wielenga&lt;br/&gt;Slides: no slides all demo&lt;br/&gt;NetBeans IDE is the official IDE of the Java platform. Focused on rapid out-of-the-box development of all kinds of Java applications, NetBeans is comprehensive and easy to use. In particular, its free and open source tooling for end-to-end development is much admired.&lt;br/&gt;Over recent years, many developers have added NetBeans to their toolbox because of its intuitive and powerful integration with Maven and Gradle. During this session you will see how NetBeans is well suited for setting up and developing applications that make use of Spring Boot.&lt;br/&gt;You will also learn about the many new features that have been added in NetBeans IDE 8.0 and 8.1, helping you working quickly and effectively with Java and Maven in the context of Spring Boot. By the end of this session, you’ll have a better grasp of Spring Boot, as well as a thorough understanding of the range of features that NetBeans provides for working with it!&lt;/p&gt;
-&lt;iframe width="420" height="315" src="https://www.youtube.com/embed/YgjBc7O4Mdw" frameborder="0" allowfullscreen&gt;&lt;/iframe&gt;</content>
-  </entry>
-  <entry>
-    <title>This Week in Spring - March 29th, 2016</title>
-    <link rel="alternate" href="https://spring.io/blog/2016/03/30/this-week-in-spring-march-29th-2016" />
-    <category term="engineering" label="Engineering" />
-    <author>
-      <name>Josh Long</name>
-    </author>
-    <id>tag:spring.io,2016-03-30:2447</id>
-    <updated>2016-03-30T01:36:08Z</updated>
-    <content type="html">&lt;p&gt;Welcome to another installation of &lt;em&gt;This Week in Spring&lt;/em&gt;! This week I&amp;rsquo;m working with customers and trying to bring the Spring (and hoping for the according weather!) to hitherto snow-covered Denver, Colorado.&lt;/p&gt;
-&lt;ul&gt;
-  &lt;li&gt;the momentum behind the sensation that&amp;rsquo;s sweeping the nation, Spring Cloud, continues as it picks up speed heading to Spring Cloud Brixton&amp;rsquo;s final release! The &lt;a href="https://spring.io/blog/2016/03/24/spring-cloud-brixton-rc1-is-now-available"&gt;first release candidate, Spring Cloud RC1, is now available&lt;/a&gt;! The new release has a &lt;em&gt;lot&lt;/em&gt; of new features - make sure to consult the &lt;code&gt;README&lt;/code&gt;!&lt;/li&gt;
-  &lt;li&gt;Joe Stein&amp;rsquo;s &lt;a href="https://spring.io/blog/2016/03/29/springone2gx-2015-replay-developing-real-time-data-pipelines-with-apache-kafka"&gt;&lt;em&gt;Developing Real-Time Data Pipelines with Apache Kafka&lt;/em&gt; from SpringOne2GX 2015 talk replay is now up&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;Spring Social lead Craig Walls&amp;rsquo; &lt;a href="https://spring.io/blog/2016/03/29/springone2gx-2015-replay-a-spring-developer-s-guide-to-social-integration"&gt;SpringOne2GX 2015 talk on developing social applications with Spring Social&lt;/a&gt; is now up&lt;/li&gt;
-  &lt;li&gt;Martin Lippert continues his epic series on the really &lt;a href="https://spring.io/blog/2016/03/29/the-spring-boot-dashboard-in-sts-part-5-working-with-launch-configurations"&gt;powerful integrations Spring Boot Dashboard in the Spring Tool Suite&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;Spring messaging ninja and Spring Integration &lt;a href="https://spring.io/blog/2016/03/25/spring-amqp-1-6-0-milestone-2-and-1-5-5-available"&gt;lead Gary Russell has just announced Spring AMQP 1.6 M2 and 1.5.5&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;Spring Security lead Rob Winch, never sleeping, has just released &lt;a href="https://spring.io/blog/2016/03/24/spring-security-4-1-0-rc1-released"&gt;the first release candidate of Spring Security 4.1.0&lt;/a&gt; &lt;em&gt;packed&lt;/em&gt; with new features!&lt;/li&gt;
-  &lt;li&gt;Spring Cloud Stream lead Marius Bogoevici &lt;a href="https://spring.io/blog/2016/03/23/spring-cloud-stream-1-0-0-rc1-is-now-available"&gt;has just announced Spring Cloud Stream RC1&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;Spring Statemachine lead Janne Valkealahti &lt;a href="https://spring.io/blog/2016/03/22/spring-statemachine-1-1-0-m2-released"&gt;just announced Spring Statemachine 1.1.0.M2&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;the Erlang Solutions blog has a really interesting post on a &lt;a href="https://www.erlang-solutions.com/blog/take-control-of-your-rabbitmq-queues.html?utm_campaign=RabbitMQblog&amp;utm_medium=ESL&amp;utm_source=Twitter"&gt;new feature in RabbitMQ 3.6.0 that load-balances the creation of new queues across a cluster&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;I hope you&amp;rsquo;re following along with the exciting new stuff being added to Spring Boot 1.4! Go to the Spring Initializr and select Spring Boot 1.4 SNAPSHOT from version dropdown and then scroll down, for example, to the &lt;code&gt;NoSQL&lt;/code&gt; column where you&amp;rsquo;ll see new support for Couchbase and Neo4j!&lt;/li&gt;
-  &lt;li&gt;I really liked Biju Kunjummen&amp;rsquo;s blog on the Java Code Geeks &lt;a href="https://www.javacodegeeks.com/2016/03/single-page-angularjs-application-spring-boot-yeoman.html"&gt;on how to get a single page application up and running with Spring Boot and Yeoman&lt;/a&gt;, quickly with the &lt;code&gt;spring&lt;/code&gt; CLI tool and some JavaScript ecosystem tools&lt;/li&gt;
-&lt;/ul&gt;</content>
   </entry>
 </feed>
