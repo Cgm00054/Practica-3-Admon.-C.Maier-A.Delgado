@@ -40,6 +40,7 @@
 				//EL SERVIDOR HACIENDOLO MAS SEGURO PARA LA COMPROBACION
 				//DIRECTA CON LA BD
 				$password=sha1($password.'ksfjkjfhe94943ukj');
+				$password=base64_encode($password);
 				
 				
 				
@@ -64,7 +65,7 @@
                 }
             }
             
-             $link = mysql_connect('localhost:3306', 'root', '') or die('No se puede conectar con el servidor');
+             $link = mysql_connect('localhost:3306', 'root', 'root') or die('No se puede conectar con el servidor');
                 if (!$link) {
                     die('Could not connect to MySQL: ' . mysql_error());
                 }

@@ -2,6 +2,7 @@ package prueba;
 
 import java.io.ByteArrayInputStream;
 import org.apache.commons.*;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.digest.DigestUtils;
 
 import java.io.File;
@@ -81,6 +82,10 @@ public class Main {
        System.out.print("Introduzca su password, "+user_min+" :");
        String password=teclado.next();
        password=DigestUtils.sha1Hex(password+algoritmo); 
+       
+       // Codificación BASE 64
+       Base64 base64=new Base64();
+       password=base64.encodeToString(password.getBytes());
        System.out.println("password:"+password);
        
        //TODO: Autenticarse en el servidor

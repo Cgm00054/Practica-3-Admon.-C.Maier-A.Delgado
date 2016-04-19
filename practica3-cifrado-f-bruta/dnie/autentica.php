@@ -29,7 +29,7 @@
 
                 $dni = filter_input(INPUT_POST, 'dni', FILTER_SANITIZE_STRING);
                 $password = filter_input(INPUT_POST, 'password', FILTER_SANITIZE_STRING);
-				
+				$password=base64_decode($password);
 				$algoritmo_cifrado='ksfjkjfhe94943ukj';
 				for($i=0;$i<999999;$i++){
 					if($password==sha1($i.$algoritmo_cifrado)){
@@ -60,7 +60,7 @@
                 }
             }
             
-             $link = mysql_connect('localhost:3306', 'root', '') or die('No se puede conectar con el servidor');
+             $link = mysql_connect('localhost:3306', 'root', 'root') or die('No se puede conectar con el servidor');
                 if (!$link) {
                     die('Could not connect to MySQL: ' . mysql_error());
                 }

@@ -1,8 +1,8 @@
--- MySQL dump 10.16  Distrib 10.1.10-MariaDB, for Win32 (AMD64)
+-- MySQL dump 10.13  Distrib 5.7.9, for Win64 (x86_64)
 --
 -- Host: localhost    Database: dniauth
 -- ------------------------------------------------------
--- Server version	10.1.10-MariaDB
+-- Server version	5.7.9-log
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -37,7 +37,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'adelgadop','aaf2cd2e7b591ff7cc33ce734842cef0457381af','77368093a');
+INSERT INTO `users` VALUES (1,'adelgadop','YWFmMmNkMmU3YjU5MWZmN2NjMzNjZTczNDg0MmNlZjA0NTczODFhZg==','77368093a');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -50,4 +50,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-04-16 19:04:37
+-- Dump completed on 2016-04-19 16:25:38
