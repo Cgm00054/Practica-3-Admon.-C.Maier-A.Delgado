@@ -1,0 +1,7 @@
+Debido a la configuración de nuestro servidor (XAMPP) hay que tener en cuenta que:
+
+-La URL del cliente es: localhost/dnie/autentica.php
+-El usuario y la contraseña de nuestra base de datos mysql son: "root" "root"
+
+Si se quiere comprobar el funcionamiento del servicio con otra configuración hay que modificar tanto la URL del cliente como los parámetros
+de la base de datos en autentica.php.
