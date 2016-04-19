@@ -5,3 +5,5 @@ Debido a la configuración de nuestro servidor (XAMPP) hay que tener en cuenta qu
 
 Si se quiere comprobar el funcionamiento del servicio con otra configuración hay que modificar tanto la URL del cliente como los parámetros
 de la base de datos en autentica.php.
+
+Antonio Delgado y Cristian Maier
